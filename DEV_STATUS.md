@@ -1,7 +1,8 @@
 # TFsensorSEED Development Status
 
-**Date Updated:** June 14, 2026
-**Current Phase:** Transitioning from Stage 1 (Validation) to Stage 3 (Automated Generation & Filtering)
+**Date Updated:** June 16, 2026
+**Current Phase:** Stage 3 multi-ligand specificity campaigns + Tier-2 FEP, running across nodes.
+**Live state & job allocation:** `PROGRESS.md` + `JOBS_REGISTRY.csv` (single source of truth). Cross-server setup: `HANDOFF.md`. Sections 1–5 below are historical (Jun 14–15); **§6 = current.**
 
 ## 1. Today's Major Milestones & Discoveries
 
@@ -47,3 +48,27 @@ The full 4-phase automation is implemented, smoke-validated end-to-end, and Phas
 *   **First Stage-3 Run Finished (Estradiol target):** 65 unique designs generated. PyRosetta `flex-ddG` successfully found 20 designs highly specific to Estradiol (Phase 2 passed). However, ALL 20 designs failed the Boltz-2 Apo/Holo gate (Phase 3). They bound the ligand but failed to open the DBD > 38 Å (dead-binders). This confirms binding $\neq$ activation.
 *   **D-Ring Steric Strategy Initiated (`drive_dring.sh`):** To specifically distinguish Testosterone from Progesterone, we initiated a new pipeline fixing Arg123/Glu106 (A-ring anchors) while introducing bulky mutations at the D-ring to sterically clash with Progesterone's bulky 20-acetyl group. Phase 1 generated the library; Phase 2 is currently running.
 *   **Validating the Apo Gate (Catastrophic Leaky Mutants):** Experimental data confirmed that introducing too much bulk inappropriately (e.g., A66M / model A57M) causes a 200x spike in basal fluorescence (catastrophic leaky). The bulky Methionine completely prevents the Apo state from closing. Tolerable mutations like A66L and I70L (model I61L) maintain function. Our Tier-1.5 Boltz Apo Gate (< 35.5 Å) is perfectly positioned to predict and filter out these true negative (catastrophic leaky) candidates.
+
+---
+## 6. June 16 Update — Tier-2 FEP built, multi-ligand campaigns, cross-server
+
+**Tier-2 FEP is now BUILT, INSTALLED, and VALIDATED** (was scaffold-only before).
+- Engine: **pmx hybrid-topology + GROMACS (CUDA) non-equilibrium TI** (Crooks/BAR/Jarzynski), GPU. Env recipe + gotchas in `HANDOFF.md §2` (CUDA-pin GROMACS — conda default is OpenCL; ambertools+gromacs together; pmx from git, not pip; genion=SOL; hybrid dt-warmup ladder).
+- **Demo (L147R × cortisol):** closed the thermodynamic cycle, ΔΔG_bind = −8.6 kJ/mol (BAR), **sign-correct** vs assay. `results/stage3_fep/proto_l147r_cortisol/FEP_DEMO_RESULTS.md` + `FEP_demo_figure.png`.
+- **E106L specificity FEP (4 ligands + apo):** well-converged (±2–3 kJ/mol) but **fails to reproduce the assay** — diagnosed as GIGO (E106 is **second-shell** to the ligand; the cortisol complex was unstable; poses are unvalidated). Lesson: a meaningful specificity FEP needs a **restrained/validated pose + a first-shell target**. `results/stage3_fep/e106l_specificity/SPECIFICITY_RESULTS.md`.
+- Reusable executors live in **`scripts/fep/`** (`run_rbfe_general.sh`, `prep_ligands.py`, `analyze_specificity.py`, …).
+
+**Tier-1.5 gate — major caveat found.** The original D-ring gate (7/12 pass) folded **1 ligand on the homodimer**. At the biologically-correct **2 ligands** the holo opens much wider (~44 Å), and **Protenix disagrees with Boltz** on opening. → the "agonist pass" is single-predictor + wrong-stoichiometry-sensitive. **Re-running the 2-ligand gate on all 71 D-ring designs** (`results/stage3_dring/gate2lig/`, `scripts/gate/drive_gate2lig.sh`). **Amplitude is now treated as a wet-lab readout**, not a trusted filter. The trusted specificity signal is the empirical scan (I61L/L85I/E106L) + design convergence.
+
+**Multi-ligand specificity campaigns (recognition-code, hypothesis-driven):**
+- **Testosterone** (done): leads **des0039 / des0044 / des0060** (I61L+L85I core) + single **E106L** (wet-lab validated). Deliverable for the bench: `deliverables/AcrR_testosterone_sensor_designs.{md,csv}` (FASTA + mutations in model & experimental numbering + caveats).
+- **Progesterone**: ligand-aware D-ring + mild S/T/N/Q (C20 acetyl) bias, keep A-ring.
+- **Cortisol**: **R123E anchor** (wet-lab-validated cortisol switch) + polar D-ring (S/T/N/Q).
+- **Estradiol**: Glu/Arg/His phenol clamp (prior single-anchor run failed the gate).
+
+**Engineering / infra.**
+- Refactored tool paths into `tfsensor/config.py` + `.env` (`.env.example` provided); `design_score.py` uses `ThreadPoolExecutor`; robust LigandMPNN FASTA parsing; 2-ligand gate support in `design_gate.py`.
+- **GitHub:** pushed to `https://github.com/HdWangUAG/TFsensorSEED` (code + docs + agent-memory mirror in `docs/agent_memory/` + `data/`).
+- **Node-Aspartate** (`129.215.109.43`, 2nd GPU): received `data/` + WT-validation poses (rsync, 202 MB). **prog/cort/estradiol generation + flex-ddG screen reassigned to Aspartate** (the Alpha queue was cancelled). Alpha keeps the 2-ligand gate + FEP/RBFE. See `JOBS_REGISTRY.csv`.
+
+**Next:** finish 2-ligand gate (Alpha) → compare vs 1-ligand; run prog/cort/estradiol gen+screen (Aspartate); build the **ligand-ligand RBFE (ΔΔΔG) executor** for the test/prog/cort triad (Beta) — the rigorous specificity tool that avoids the E106L second-shell pitfall.

@@ -1,0 +1,23 @@
+[project]
+name = "tfsensor_crew"
+version = "0.1.0"
+description = "CrewAI application for status aggregation of TFsensorSEED"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "crewai>=0.30.0",
+    "pandas>=2.0.0",
+    "pyyaml>=6.0",
+]
+[project.scripts]
+tfsensor-crew = "tfsensor_crew.main:run"
+tfsensor_crew = "tfsensor_crew.main:run"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

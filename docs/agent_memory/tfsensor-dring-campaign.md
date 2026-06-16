@@ -1,8 +1,10 @@
 ---
 name: tfsensor-dring-campaign
 description: TFsensor Stage-3 D-ring steric-clash campaign for testosterone-over-progesterone specificity (bump-and-hole at C17)
-metadata:
+metadata: 
+  node_type: memory
   type: project
+  originSessionId: a8b6a708-ed73-43fe-b948-ff262bc39f09
 ---
 
 TFsensorSEED testosterone>progesterone specificity campaign (2026-06-15). Strategy = D-ring "bump-and-hole": both steroids share the A-ring 4-en-3-one (read by WT Arg123+Glu106 — PRESERVE these, do NOT design them); they differ only at C17 (testosterone 17β-OH small vs progesterone 20-acetyl bulky). Install bulky hydrophobics at the C17/D-ring shell to clash with progesterone's acetyl but leave room for testosterone's OH.
@@ -24,6 +26,9 @@ Notable: winning bumps are often **Ile (β-branched), not always Trp** — Trp c
 
 ## Validation (3-seed re-score + 34A gate, 2026-06-15)
 3-seed ΔΔG: test−prog margins all >=0 → **binding-ΔΔG does NOT robustly resolve test-vs-prog**; the 1-seed leads (des0045 −8.8) were relax ARTIFACTS (dropped out). BUT Tier-1.5 gate: **7/12 pass** — testosterone stays a strong agonist (holo 38-42 A, tight apo), unlike estradiol designs (0/20). Standout **des0039** (holo 42, Δ+8.7). **des0039/des0044/des0060 carry I61L+L85I** = the exact positions the empirical scan validates as test>prog discriminators → gate + wet-lab agree even though binding-ΔΔG is noise-limited. Lesson: test-vs-prog discrimination is functional/efficacy-based; judge by gate + FEP + wet-lab, not binding-ΔΔG margin. Leads: des0039, des0060, des0044 + single E106L. Files: results/stage3_dring/validate/. See [[tfsensor-empirical-scan]].
+
+## 2-ligand gate, ALL 71 designs (2026-06-16)
+Re-ran the Tier-1.5 gate **homodimer-correct (2 ligands, one per protomer)** + unbiased (all 71, not just top-12; the old top-12 was picked by the unreliable binding-ΔΔG). Code: `design_gate.py` now has `--all` + `--n_ligand 2`; driver `scripts/gate/drive_gate2lig.sh`; ~8 min/design, ~6.5 h. Result `results/stage3_dring/gate2lig/gate2lig.json`. **Key finding: at 2 ligands the holo opens WIDE for ALL 71 (38.4–49.5 Å, median 44) → agonist criterion (holo>38) is non-discriminating; Boltz over-opens at 2-lig (Protenix gave modest opening). The real discriminator becomes the APO/basal-leak check (apo<35.5; 13 leaky fails).** apo is IDENTICAL 1-vs-2-ligand (apo has no ligand) — only holo changed; the 1-ligand gate's agonist "fails" (des0015/10/52) were false-negatives that open fine at 2-lig. **58/71 pass.** All testosterone leads des0039/44/60/57/18/07/03 pass (tight apo + wide holo). Tightest-apo passers: des0039(33.3), des0009/des0043(33.4). Reinforces: amplitude = wet-lab; the gate's usable signal is the apo leak filter, not the holo amplitude.
 
 ## Protenix orthogonal fold (2026-06-15)
 Folded leads des0039/des0060 (testosterone+progesterone) with Protenix. ipTM ~0.87-0.89 (folds well, both seat) but flat test≈prog (no specificity, expected). DBD opening on Protenix poses: des0039-test 35.3Å, des0060-test 36.9Å — MUCH smaller than Boltz (42.0/38.1) and flat test≈prog. **Boltz vs Protenix DISAGREE on agonist opening** → the Tier-1.5 gate pass is Boltz-only, NOT cross-predictor-robust; amplitude/opening axis lacks consensus. Trust specificity from empirical scan + ΔΔG/FEP; amplitude = wet-lab. Files: results/stage3_dring/protenix/.

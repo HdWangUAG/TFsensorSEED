@@ -1,0 +1,28 @@
+parse_progress_task:
+  description: >
+    Parse the PROGRESS.md file located at {progress_path} to extract the campaign status table.
+  expected_output: >
+    A structured list of campaigns, including their names, stages, states, key outputs, and leads/findings.
+  agent: progress_parser_agent
+
+parse_jobs_registry_task:
+  description: >
+    Parse the JOBS_REGISTRY.csv file located at {registry_path} to extract all job tasks.
+  expected_output: >
+    A structured list of jobs, including Task_ID, Task_Type, Assigned_Node, Status, Target_Ligand, and Notes.
+  agent: jobs_registry_parser_agent
+
+sync_analysis_task:
+  description: >
+    Cross-reference the parsed campaigns from the progress ledger and the tasks from the jobs registry.
+    Identify any inconsistencies, such as status mismatches, untracked campaigns, or pending next actions.
+  expected_output: >
+    A structured list of synchronization discrepancies and matching campaigns.
+  agent: sync_analyst_agent
+
+generate_report_task:
+  description: >
+    Generate a markdown synchronization report from the sync analysis results and write it to {output_path}.
+  expected_output: >
+    A beautifully formatted markdown report summarizing the sync analysis, including campaigns checked, matching items, and discrepancies.
+  agent: report_generator_agent

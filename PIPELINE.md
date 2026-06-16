@@ -25,11 +25,22 @@ LigandMPNN may diversify, but candidates are motif-anchored, not blind.
   repulsion. Does NOT capture F119W (a sensitivity/EC50 effect → wet-lab, out of scope).
   Use as a RELATIVE ranker, not an absolute-affinity predictor.
 
-## Tier 2 — rigorous arbiter on the Top ~10:  Boltz WT → drMD → FEP
-- Boltz to (re)fold the designed holo complex; **drMD** for equilibration/MD; **relative
-  binding FEP** (estradiol vs the hardest decoy) as the ultimate specificity arbiter.
-- STATUS: not yet built — drMD + FEP (OpenMM/Amber TI) harness must be stood up before
-  this tier runs. Triggered only when Tier-1 yields a Top-10.
+## Tier 1.5 — Boltz two-state geometry gate (apo<35.5 Å, holo>38 Å, Δ>0)
+- **Caveat (2026-06-16):** the gate is a **single-predictor structural proxy**. Must fold the
+  **2 ligands** of the homodimer (one per protomer) — the 1-ligand fold under-opens; at 2 ligands
+  holo opens much wider (~44 Å). **Boltz and Protenix disagree** on opening. → use the gate to
+  drop clearly-dead/leaky designs, but **treat allosteric amplitude as a WET-LAB readout**, not truth.
+
+## Tier 2 — rigorous arbiter:  FEP
+- **STATUS (2026-06-16): BUILT & VALIDATED.** Engine = **pmx hybrid-topology + GROMACS (CUDA)
+  non-equilibrium TI** (Crooks/BAR/Jarzynski), not drMD. Executors in `scripts/fep/`; env in `HANDOFF.md §2`.
+- Validated on L147R×cortisol (ΔΔG_bind sign-correct vs assay; `FEP_DEMO_RESULTS.md`).
+- **Lesson (E106L, `SPECIFICITY_RESULTS.md`):** protein-mutation FEP on *predicted, unrestrained,
+  second-shell* inputs is GIGO at ~1 kcal/mol. A trustworthy run needs a **restrained/validated pose +
+  first-shell target + replicates**.
+- **Preferred specificity tool:** **ligand-ligand RBFE** within {testosterone, progesterone, cortisol}
+  (identical A-ring → C17 perturbation maps cleanly; estradiol excluded). ΔΔΔG = how a design shifts
+  ΔΔG(target vs rival) vs WT. (Executor: to build.)
 
 ## Final selection
 Pass Tier-1 relative specificity → Tier-2 FEP confirms estradiol > decoys → wet-lab tests

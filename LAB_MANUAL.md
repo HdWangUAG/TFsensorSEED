@@ -20,16 +20,20 @@ Nature uses strict "lock-and-key" motifs to recognize steroids based on hydrogen
 ### A-Ring Recognition (Specificity Switch)
 - **4-en-3-one Steroids (Testosterone, Progesterone, Cortisol):** The A-ring C3 position is a **Keto (C=O)**, which is exclusively a Hydrogen Bond **Acceptor**. In nature (and in WT AcrR), this is recognized by an **Arginine (Arg)** or Glutamine donor.
 - **Aromatic Steroids (Estradiol):** The A-ring C3 position is a **Phenol (-OH)**, which is a strong Hydrogen Bond **Donor**. Nature recognizes this using a **Carboxylate Clamp (Glu or Asp)**.
-- **Design Rule 1:** To create an Estradiol-specific biosensor, the Arg123 position must be mutated to **Glu/Asp**. This accepts the estradiol phenol while simultaneously exerting catastrophic O-O electrostatic repulsion against Testosterone, Progesterone, and Cortisol.
+- **Design Rule 1:** To create an Estradiol-specific biosensor, the Arg123 position must be mutated to **Glu/Asp** (accepts the estradiol phenol; repels the 4-en-3-one 3-keto).
+  > **⚠️ Wet-lab correction (empirical scan):** the single mutation **R123E does NOT yield estradiol response** — estradiol stays dead (~0.8), and R123E instead becomes **cortisol-selective** (cortisol 31 = top; test/prog/DHT killed). The carboxylate is hijacked by cortisol's polyol. **Estradiol is unreachable by any single/double mutation** in the 85-variant scan → it needs the **full Glu + Arg + His triad** (multi-residue pocket redesign), and even then estradiol is a weak agonist. Treat R123E as the validated **cortisol** anchor (see Rule 3), not the estradiol route.
 
 ### D-Ring Recognition (Testosterone vs. Progesterone)
 - **Testosterone:** D-ring C17 has a small -OH (Donor/Acceptor).
 - **Progesterone:** D-ring C17 has a bulky 20-acetyl group (-C(=O)CH3).
-- **Design Rule 2 (Space Inhibition):** To strictly select for Testosterone and exclude Progesterone, maintain the A-ring anchors (Arg123/Glu106) and introduce **bulky hydrophobic residues (Trp, Phe, Ile)** at the D-ring pocket region. This creates severe steric clash with Progesterone's large acetyl group, physically "bumping" it out, while leaving just enough room for Testosterone's small -OH.
+- **Design Rule 2 (Testosterone, Space Inhibition):** Keep A-ring anchors (Arg123/Glu106), introduce **bulky hydrophobic residues (Trp/Phe/Ile)** at the D-ring to clash with Progesterone's acetyl while fitting Testosterone's small -OH.
+  > **Empirical support:** the scan validates D-ring positions **I61L and L85I** as testosterone-over-progesterone (L85I: test 120/prog 14; I61L: test 21/prog 3), and **E106L** as a clean testosterone switch (test 26 / prog 5.6 / cort 1.8 / estr 0.6). Leads carrying I61L+L85I: **des0039/des0044/des0060** (see `deliverables/AcrR_testosterone_sensor_designs.md`).
+
+- **Design Rule 2b (Progesterone — inverse of Rule 2):** To select Progesterone, *accommodate* the bulky 17-acetyl: **enlarge** the D-ring pocket and add **one H-bond donor (Ser/Thr/Asn/Gln) for the C20 carbonyl**; keep A-ring anchors; deny the cortisol polyol. (Campaign `results/stage3_prog/`.)
 
 ### Core Recognition (Cortisol)
 - **Cortisol:** Highly polar polyol core (11-OH, 17-OH, 21-OH).
-- **Design Rule 3:** Requires a polar pocket (e.g., L147R introduces a polar Arg into the hydrophobic core, rescuing Cortisol binding while penalizing the hydrophobic Testosterone).
+- **Design Rule 3:** Requires a polar pocket. **Validated anchor: R123E** (empirical scan — R123E makes cortisol the top responder, 31). Combine with a **polar D-ring redesign (Ser/Thr/Asn/Gln)** to wrap the polyol. (L147R also rescues cortisol by introducing a polar Arg into the core while penalizing hydrophobic Testosterone.) Campaign `results/stage3_cort/`.
 
 ## 3. Allosteric Gating Principles (The 34 Å Rule)
 
@@ -43,6 +47,13 @@ Binding affinity ($\Delta\Delta G$) alone does not guarantee allosteric efficacy
 - To achieve maximum fluorescence signal (complete DNA release), the Holo state DBD distance must widen significantly (e.g., **> 38.0 Å**).
 - A ligand that binds but fails to open the DBD (Holo distance ≈ Apo distance) is a **Dead Binder / Antagonist**.
 
+> **Caveat (2026-06-16) — the gate is a soft, single-predictor proxy.** (1) The homodimer must be
+> folded with **2 ligands** (one per protomer); the 1-ligand fold under-opens, while 2 ligands open
+> the holo much wider (~44 Å). (2) **Boltz and Protenix disagree** on the opening magnitude. So a
+> "passes the gate" result is *Boltz-specific and stoichiometry-sensitive*. Use the gate to reject
+> clearly dead/leaky designs, but **measure amplitude in the lab** — do not trust the predicted Δ as
+> a quantitative agonist score.
+
 ## 4. Computational Pipeline Standard Operating Procedure (SOP)
 
 Future Stage-3 designs must pass through this funnel before wet-lab synthesis:
@@ -53,4 +64,14 @@ Future Stage-3 designs must pass through this funnel before wet-lab synthesis:
     *   **Check 1:** Mutant Apo DBD distance must be < 35.5 Å (No severe leakiness).
     *   **Check 2:** Mutant Holo DBD distance must be > 38.0 Å (Strong agonist).
     *   **Check 3:** Holo - Apo Delta must be positive for the target ligand.
-*   **Tier 2 (Ultimate Arbiter):** Free Energy Perturbation (FEP). Run RBFE (Relative Binding Free Energy) via drMD and alchemical transformation for the Top ~10 elite sequences to obtain mathematically rigorous binding free energies prior to ordering DNA.
+*   **Tier 2 (Ultimate Arbiter):** Free Energy Perturbation. **BUILT & VALIDATED (2026-06-16):**
+    RBFE via **pmx hybrid-topology + GROMACS (CUDA) non-equilibrium TI** (Crooks/BAR/Jarzynski) — *not*
+    drMD. Validated on L147R×cortisol (sign-correct). **Critical lesson:** FEP is GIGO — it only
+    resolves ~1 kcal/mol specificity if run on a **validated/restrained pose with a first-shell
+    target** (the E106L run failed because E106 is second-shell and the pose was unstable). Prefer
+    **ligand-ligand RBFE** across the test/prog/cort triad (identical A-ring; estradiol excluded) to
+    compute ΔΔΔG selectivity directly. Executors: `scripts/fep/`; env: `HANDOFF.md §2`.
+
+> **Note on this SOP:** Tiers 1 and 1.5 are computational *filters/ranks*, not ground truth. The
+> binding-ΔΔG cannot robustly resolve ~1 kcal/mol selectivity, and the Tier-1.5 gate is a
+> single-predictor proxy (see §3 caveat). Final calls = gate ∩ empirical-scan convergence + wet-lab.
