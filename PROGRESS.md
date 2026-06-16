@@ -13,10 +13,14 @@ HANDOFF recipe (no `~/LC-Seed/envs`, no `~/my_ligandmpnn`); tools live in `/opt`
   passed — PyRosetta import, `design_score` flex-ddG CLI, `ligandmpnn_gen` import,
   LigandMPNN `run.py` all OK. So **Tier-0 gen (CPU parts) + Tier-1 flex-ddG screen are ready here.**
 - **Fixed `boltz2` env (2026-06-16):** was half-provisioned + leaking into a broken `~/.local`.
-  Made self-contained (`pip install boltz==2.2.0`: torch 2.12.0+cu130, lightning 2.5.0, rdkit,
+  Made self-contained (`pip install boltz==2.2.0`, torch **2.7.1+cu126**, lightning, rdkit,
   numba), purged a corrupted dual numpy → 1.26.4, patched `bin/boltz` shebang to `-s` (ignore
-  user-site) so it works at every driver call site. `boltz --help` ✅, `pip check` clean. Tier-1.5
-  gate is code-ready here; only a GPU run remains to confirm torch 2.12/cu130 on this Turing card.
+  user-site) so it works at every driver call site. `boltz --help` ✅, `pip check` clean.
+- **GPU LIVE + boltz2 GPU-verified (2026-06-16, later):** `nvidia-smi` now healthy —
+  **Quadro RTX 8000, 48 GB, Driver 580.159.03 / CUDA 13.0** (the driver/library mismatch is
+  GONE; no reboot needed in the end). `boltz2` torch reports `cuda_available True`, device
+  Quadro RTX 8000, capability (7.5) Turing. **Tier-1.5 Boltz gate is now fully runnable on GPU here.**
+  Blocker #1 CLEARED. `.env` boltz warning updated to match.
 - **Plan (set 2026-06-16):** testosterone done on Alpha → aspartate samples **prog/cort/estradiol**
   sequence libraries (CPU), then ships sequences to the FEP node for ligand-RBFE.
 - **LigandMPNN-on-CPU validated (2026-06-16):** `cuda_available False` → clean CPU fallback (no
@@ -29,10 +33,12 @@ HANDOFF recipe (no `~/LC-Seed/envs`, no `~/my_ligandmpnn`); tools live in `/opt`
   We only have the testosterone STR holo locally; **need `wt_progesterone/wt_cortisol/wt_estradiol_model_0.pdb`
   rsync'd from Alpha** (gitignored, GPU-made). Same sync also unblocks the flex-ddG screen
   (`_build_complex` reuses each ligand's pre-posed coords; it does NOT dock SMILES de novo).
-- **Blocked (deferred per owner):** (1) `nvidia-smi` driver/library mismatch → CUDA down until
-  driver reload/reboot (sudo) — blocks all GPU tiers (not needed for CPU generation). (2) WT holo
-  scaffolds + campaign dirs not yet rsync'd from Alpha (need Alpha's address).
-- **Ready to take a GPU campaign once (1)+(2)+(3) clear.** Must own a results dir NOT owned by
+- **Blocker status — ALL CLEAR (2026-06-16):** (1) GPU driver — ✅ CLEARED (see GPU-LIVE note above).
+  (2) WT scaffolds — ✅ CLEARED: Alpha pushed `results/stage1_wt_validation/` (202 MB) via rsync.
+  All four seed1 WT holo poses verified intact (test/prog/cort/estradiol, 2688 protein ATOM + chain-L
+  ligand HETATM each; HETATM counts scale by steroid size — cortisol 26 > prog 23 > test 21 > estr 20).
+  seed42/2024 Boltz replicates + Protenix outputs also synced. **Tier-0/1/1.5 are all runnable here now.**
+- **Ready to launch a campaign — assignment still TBD with owner.** Must own a results dir NOT owned by
   Alpha (gate2lig/prog/cort/fep are Alpha's per §4) to keep merges clean — assignment TBD with owner.
 
 
@@ -63,7 +69,8 @@ Testosterone: **des0039 / des0060 / des0044** (I61L+L85I) + single **E106L**. Co
 
 ## Next actions (claim by node, then check off)
 - [ ] (Alpha) finish testosterone 2-ligand gate → compare vs 1-ligand; pick survivors.
-- [ ] (Alpha) finish prog/cort gen+screen → ranked leads.
-- [ ] (Alpha) prog/cort 2-ligand gate on leads; FEP/ligand-RBFE.
+- [ ] (Aspartate) finish prog/cort gen+screen → ranked leads.
+- [ ] (Aspartate) prog/cort 2-ligand gate on leads.
+- [ ] (Alpha) prog/cort FEP/ligand-RBFE.
 - [ ] (Beta) build **ligand-ligand RBFE executor** for the test/prog/cort triad → ΔΔΔG specificity (identical A-ring, C17 perturbation maps cleanly; estradiol excluded). This is the rigorous "explain the ΔΔΔG" tool and avoids the E106L second-shell pitfall.
 - [ ] (Beta) consider per-position LigandMPNN bias (current `--favor` is uniform across design positions).

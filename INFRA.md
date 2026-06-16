@@ -14,10 +14,11 @@ This document tracks the available compute resources for parallel execution of t
 ### Node-aspartate bring-up status (2026-06-16)
 - **Config:** `.env` written with this node's real paths (LigandMPNN `/opt/LigandMPNN` + `ligandmpnn_env`; PyRosetta `~/.conda/envs/pyrosetta`; Boltz `~/.conda/envs/boltz2`). `config.py` resolves all 5 paths ✅.
 - **Verified (CPU):** PyRosetta import ✅, `design_score` (flex-ddG) CLI ✅, `ligandmpnn_gen` import ✅, LigandMPNN `run.py --help` ✅.
-- **`boltz2` env REPAIRED (2026-06-16):** was half-provisioned (only `boltz`+numpy/scipy/pandas; borrowed torch/click/matplotlib/lightning from a broken `~/.local`). Fixed by `pip install boltz==2.2.0` in-env (self-contained: torch 2.12.0+cu130, pytorch-lightning 2.5.0, rdkit 2026.3.3, numba 0.61), purging a corrupted dual-`dist-info` numpy down to **1.26.4** (boltz `<2.0` ∩ numba `<2.2`), and patching the `bin/boltz` shebang to `python3.10 -s` so it ignores the shared broken `~/.local` at every call site. `boltz --help` exits 0; `pip check` clean. **Still needs a GPU run to confirm** (torch 2.12+cu130 on Turing sm_75 / driver 580 unverified).
-- **REMAINING BLOCKERS (need human / GPU):**
-  1. **nvidia driver/library mismatch** — `nvidia-smi` fails (kernel module 580.126.09 vs NVML 580.159). CUDA blocked until modules reloaded or reboot (sudo). All GPU tiers (LigandMPNN sampling, Boltz gate, FEP) wait on this.
-  2. **No `results/` synced** — only `data/` inputs present. Need rsync of `results/stage1_wt_validation/` (WT holo scaffolds) + any campaign dirs from Alpha (Alpha's address not yet known to this node).
+- **`boltz2` env REPAIRED & GPU LIVE (2026-06-16):** Fixed by `pip install boltz==2.2.0` in-env (self-contained: torch 2.7.1+cu126, pytorch-lightning, rdkit, numba), purging corrupted numpy, patching shebang to `-s`. `boltz --help` ✅, `pip check` clean. `nvidia-smi` is healthy (Quadro RTX 8000, 48 GB, Driver 580.159.03 / CUDA 13.0). Tier-1.5 Boltz gate is fully runnable on GPU here ✅.
+- **BLOCKERS CLEARED:**
+  1. **GPU Driver:** mismatch resolved, CUDA 13.0 is live.
+  2. **Data Sync:** Alpha pushed `results/stage1_wt_validation/` via rsync. All four seed1 WT holo poses verified intact.
+**Node-aspartate is fully ready for Tier-0 (generation), Tier-1 (flex-ddG screen), and Tier-1.5 (Boltz gate) executions.**
 
 ## Storage & Data Sync
 
