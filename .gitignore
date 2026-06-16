@@ -1,0 +1,32 @@
+# TFsensorSEED .gitignore
+
+# Environments & Virtual Envs
+.env
+.venv/
+env/
+__pycache__/
+*.pyc
+
+# IDEs & Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+.claude/
+
+# Results & Heavy Data (DO NOT COMMIT)
+results/
+data/
+experimental_data/
+*.pdb
+*.xtc
+*.trr
+*.edr
+*.log
+*.tpr
+*.cpt
+
+# Exceptions: keep the prototype fep settings (but ignore big files)
+!results/stage3_fep/proto_l147r_cortisol/rbfe_spec.json
+!results/stage3_fep/proto_l147r_cortisol/SETUP_FEP.md
+!results/stage3_fep/proto_l147r_cortisol/FEP_DEMO_RESULTS.md

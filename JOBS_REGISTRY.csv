@@ -1,0 +1,5 @@
+Task_ID,Task_Type,Assigned_Node,Status,Target_Ligand,Batch_File,Start_Time,Completion_Time,Notes
+tier1_batch_01,flex-ddG,Node-Beta,PENDING,-,data/split/batch_01.csv,-,-,1000 sequences
+tier1_batch_02,flex-ddG,Node-Beta,PENDING,-,data/split/batch_02.csv,-,-,1000 sequences
+tier2_fep_01,rbfe,Node-Alpha,RUNNING,Estradiol,-,2026-06-16,-,L147R Prototype
+tier2_fep_02,rbfe,Node-Gamma,PENDING,Testosterone,-,-,-,L147R Decoy Arbiter
