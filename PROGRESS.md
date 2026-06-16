@@ -12,9 +12,13 @@ HANDOFF recipe (no `~/LC-Seed/envs`, no `~/my_ligandmpnn`); tools live in `/opt`
 - **Done:** wrote node-local `.env` (paths verified, `config.py` resolves all 5); CPU smoke
   passed — PyRosetta import, `design_score` flex-ddG CLI, `ligandmpnn_gen` import,
   LigandMPNN `run.py` all OK. So **Tier-0 gen (CPU parts) + Tier-1 flex-ddG screen are ready here.**
+- **Fixed `boltz2` env (2026-06-16):** was half-provisioned + leaking into a broken `~/.local`.
+  Made self-contained (`pip install boltz==2.2.0`: torch 2.12.0+cu130, lightning 2.5.0, rdkit,
+  numba), purged a corrupted dual numpy → 1.26.4, patched `bin/boltz` shebang to `-s` (ignore
+  user-site) so it works at every driver call site. `boltz --help` ✅, `pip check` clean. Tier-1.5
+  gate is code-ready here; only a GPU run remains to confirm torch 2.12/cu130 on this Turing card.
 - **Blocked (deferred per owner):** (1) `nvidia-smi` driver/library mismatch → CUDA down until
-  driver reload/reboot (sudo; owner will do later) — blocks all GPU tiers. (2) `boltz2` env broken
-  (`~/.local` user-site leak, missing click/cycler) → gate can't run until rebuilt. (3) no `results/`
+  driver reload/reboot (sudo; owner will do later) — blocks all GPU tiers. (2) no `results/`
   synced from Alpha yet (need Alpha's address for rsync of WT scaffolds + campaign dirs).
 - **Ready to take a GPU campaign once (1)+(2)+(3) clear.** Must own a results dir NOT owned by
   Alpha (gate2lig/prog/cort/fep are Alpha's per §4) to keep merges clean — assignment TBD with owner.

@@ -16,9 +16,10 @@ Env layout DIVERGES from HANDOFF.md §2 recipe — there is NO `~/LC-Seed/envs` 
 
 Ready now (CPU-validated): Tier-0 LigandMPNN gen scaffolding + Tier-1 flex-ddG screen.
 
-3 blockers (deferred — owner fixes GPU later):
+`boltz2` env REPAIRED 2026-06-16: was half-provisioned + leaking into a broken `~/.local`. Fixed via `pip install boltz==2.2.0` in-env (self-contained: torch 2.12.0+cu130, lightning 2.5.0, rdkit, numba); purged a corrupted dual-`dist-info` numpy → 1.26.4 (boltz `<2.0` ∩ numba `<2.2`); patched `bin/boltz` shebang to `python3.10 -s` so it ignores `~/.local` at every driver call site (drivers call the BIN directly, no PYTHONNOUSERSITE). `boltz --help` ✅, `pip check` clean. GPU run still unverified (torch 2.12/cu130 on Turing sm_75 / driver 580).
+
+2 blockers remain (deferred — owner fixes GPU later):
 1. `nvidia-smi` driver/library mismatch (kernel 580.126.09 vs NVML 580.159) → CUDA down until module reload/reboot (sudo). Blocks ALL GPU tiers.
-2. `boltz2` env broken — leaks into `~/.local` user-site (no in-env `click`; `~/.local` matplotlib missing `cycler`). Rebuild self-contained before gate runs here.
-3. No `results/` synced from Alpha (only `data/` present); need Alpha's address for rsync of WT scaffolds + campaign dirs.
+2. No `results/` synced from Alpha (only `data/` present); need Alpha's address for rsync of WT scaffolds + campaign dirs.
 
 When taking a GPU campaign here, own a results dir NOT in Alpha's set (gate2lig/prog/cort/fep) to keep merges clean. See [[tfsensor-stage3-pipeline]].
