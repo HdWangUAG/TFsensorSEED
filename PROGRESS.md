@@ -17,9 +17,21 @@ HANDOFF recipe (no `~/LC-Seed/envs`, no `~/my_ligandmpnn`); tools live in `/opt`
   numba), purged a corrupted dual numpy → 1.26.4, patched `bin/boltz` shebang to `-s` (ignore
   user-site) so it works at every driver call site. `boltz --help` ✅, `pip check` clean. Tier-1.5
   gate is code-ready here; only a GPU run remains to confirm torch 2.12/cu130 on this Turing card.
+- **Plan (set 2026-06-16):** testosterone done on Alpha → aspartate samples **prog/cort/estradiol**
+  sequence libraries (CPU), then ships sequences to the FEP node for ligand-RBFE.
+- **LigandMPNN-on-CPU validated (2026-06-16):** `cuda_available False` → clean CPU fallback (no
+  driver crash); `data/AcrR_STR_001.pdb` STR (testosterone) holo scaffold; 10 seqs in 4.2 s,
+  300 seqs → 224 unique designs in seconds, 1.1 GB RAM. **Full 1200-seq library = minutes on CPU.**
+  So Tier-0 generation is fully runnable here once the right scaffolds are present.
+- **HARD DEPENDENCY for the real prog/cort/estradiol libraries:** generation conditions on the
+  ligand, and `drive_prog_cort.sh` uses each ligand's WT holo Boltz pose as the `--scaffold`
+  (`results/stage1_wt_validation/boltz/seed1/boltz_results_inputs/predictions/wt_<ligand>/wt_<ligand>_model_0.pdb`).
+  We only have the testosterone STR holo locally; **need `wt_progesterone/wt_cortisol/wt_estradiol_model_0.pdb`
+  rsync'd from Alpha** (gitignored, GPU-made). Same sync also unblocks the flex-ddG screen
+  (`_build_complex` reuses each ligand's pre-posed coords; it does NOT dock SMILES de novo).
 - **Blocked (deferred per owner):** (1) `nvidia-smi` driver/library mismatch → CUDA down until
-  driver reload/reboot (sudo; owner will do later) — blocks all GPU tiers. (2) no `results/`
-  synced from Alpha yet (need Alpha's address for rsync of WT scaffolds + campaign dirs).
+  driver reload/reboot (sudo) — blocks all GPU tiers (not needed for CPU generation). (2) WT holo
+  scaffolds + campaign dirs not yet rsync'd from Alpha (need Alpha's address).
 - **Ready to take a GPU campaign once (1)+(2)+(3) clear.** Must own a results dir NOT owned by
   Alpha (gate2lig/prog/cort/fep are Alpha's per §4) to keep merges clean — assignment TBD with owner.
 
