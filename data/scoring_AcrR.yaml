@@ -1,0 +1,31 @@
+pocket_redesign:
+  folding_ddg: 0.02
+  agg_score: 0.5
+  ligand_com_dist: 1.0
+  shape_comp: -2.5
+  gnina_affinity: -2.0
+  esm_llr_score: -1.0
+  temperature: 3.0
+  normalize: false
+
+binder_design:
+  folding_ddg: 0.02
+  gnina_affinity: -2.5
+  vina_score: 1.5
+  agg_score: 0.3
+  ligand_com_dist: 1.0
+  shape_comp: -1.0
+  esm_llr_score: -1.0
+  temperature: 3.0
+  normalize: false
+
+balanced:
+  folding_ddg: 0.02
+  agg_score: 0.5
+  ligand_com_dist: 1.0
+  shape_comp: -2.0
+  esm_llr_score: -1.0
+  gnina_affinity: -1.5
+  vina_score: 0.8
+  temperature: 3.0
+  normalize: false

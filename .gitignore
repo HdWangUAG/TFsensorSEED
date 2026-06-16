@@ -16,7 +16,6 @@ __pycache__/
 
 # Results & Heavy Data (DO NOT COMMIT)
 results/
-data/
 experimental_data/
 *.pdb
 *.xtc
@@ -26,7 +25,14 @@ experimental_data/
 *.tpr
 *.cpt
 
+# data/ is the small (~1 MB) static input set every node needs -> TRACK it.
+# (the two PDBs are re-included below, overriding the global *.pdb rule)
+!data/AcrR_protein_only.pdb
+!data/AcrR_STR_001.pdb
+
 # Exceptions: keep the prototype fep settings (but ignore big files)
 !results/stage3_fep/proto_l147r_cortisol/rbfe_spec.json
 !results/stage3_fep/proto_l147r_cortisol/SETUP_FEP.md
 !results/stage3_fep/proto_l147r_cortisol/FEP_DEMO_RESULTS.md
+!results/stage3_fep/proto_l147r_cortisol/SPECIFICITY_RESULTS.md
+!results/stage3_fep/e106l_specificity/SPECIFICITY_RESULTS.md
