@@ -10,3 +10,4 @@
 - [TFsensor D-ring campaign](tfsensor-dring-campaign.md) — testosterone>progesterone via C17 bump-and-hole; design {61,85,122,143,146,147}, keep Arg123/Glu106; rank dG(test)-dG(prog)
 - [TFsensor empirical scan](tfsensor-empirical-scan.md) — 85-mutant GFP data: R123E→cortisol (validates ΔΔG), estradiol unreachable by point-mut, E106L/L85I/I61L=testosterone-specific
 - [TFsensor specificity FEP](tfsensor-specificity-fep.md) — E106L overnight RBFE converged but failed vs assay; GIGO from second-shell target + unstable/unvalidated Boltz poses; fix = restrain pose+first-shell target+replicates
+- [TFsensor node aspartate](tfsensor-node-aspartate.md) — 2nd GPU node bring-up (2026-06-16): real env paths (/opt/LigandMPNN, ~/.conda envs), flex-ddG+gen ready; blockers = nvidia driver mismatch, broken boltz2 env, no synced results

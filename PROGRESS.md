@@ -4,7 +4,21 @@ Single source of truth for campaign state across nodes. Each node updates its se
 merge = text merge. See `HANDOFF.md` for env/sync/merge mechanics, `docs/agent_memory/`
 for the agent's accumulated reasoning. **Numbering = MODEL index everywhere (exp = model + 9).**
 
-_Last updated: 2026-06-16 (Node-Alpha)_
+_Last updated: 2026-06-16 (Node-aspartate bring-up)_
+
+## Node aspartate (2nd GPU node) — bring-up record, 2026-06-16
+New server joined the campaign. Quadro RTX 6000/8000, 36-core. Env layout DIFFERS from the
+HANDOFF recipe (no `~/LC-Seed/envs`, no `~/my_ligandmpnn`); tools live in `/opt` + `~/.conda/envs`.
+- **Done:** wrote node-local `.env` (paths verified, `config.py` resolves all 5); CPU smoke
+  passed — PyRosetta import, `design_score` flex-ddG CLI, `ligandmpnn_gen` import,
+  LigandMPNN `run.py` all OK. So **Tier-0 gen (CPU parts) + Tier-1 flex-ddG screen are ready here.**
+- **Blocked (deferred per owner):** (1) `nvidia-smi` driver/library mismatch → CUDA down until
+  driver reload/reboot (sudo; owner will do later) — blocks all GPU tiers. (2) `boltz2` env broken
+  (`~/.local` user-site leak, missing click/cycler) → gate can't run until rebuilt. (3) no `results/`
+  synced from Alpha yet (need Alpha's address for rsync of WT scaffolds + campaign dirs).
+- **Ready to take a GPU campaign once (1)+(2)+(3) clear.** Must own a results dir NOT owned by
+  Alpha (gate2lig/prog/cort/fep are Alpha's per §4) to keep merges clean — assignment TBD with owner.
+
 
 ## Established conclusions (trust these)
 - **WT is a 4-en-3-one sensor**: testosterone > cortisol > progesterone; **estradiol = non-responder**.
