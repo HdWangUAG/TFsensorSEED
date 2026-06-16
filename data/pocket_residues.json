@@ -1,0 +1,92 @@
+[
+  {
+    "chain": "A",
+    "resSeq": 61,
+    "resName": "ILE",
+    "min_dist": 2.66
+  },
+  {
+    "chain": "A",
+    "resSeq": 85,
+    "resName": "LEU",
+    "min_dist": 2.96
+  },
+  {
+    "chain": "A",
+    "resSeq": 88,
+    "resName": "GLN",
+    "min_dist": 3.25
+  },
+  {
+    "chain": "A",
+    "resSeq": 96,
+    "resName": "TRP",
+    "min_dist": 3.03
+  },
+  {
+    "chain": "A",
+    "resSeq": 100,
+    "resName": "LEU",
+    "min_dist": 3.1
+  },
+  {
+    "chain": "A",
+    "resSeq": 106,
+    "resName": "GLU",
+    "min_dist": 2.66
+  },
+  {
+    "chain": "A",
+    "resSeq": 119,
+    "resName": "PHE",
+    "min_dist": 2.92
+  },
+  {
+    "chain": "A",
+    "resSeq": 122,
+    "resName": "LEU",
+    "min_dist": 2.55
+  },
+  {
+    "chain": "A",
+    "resSeq": 123,
+    "resName": "ARG",
+    "min_dist": 2.92
+  },
+  {
+    "chain": "A",
+    "resSeq": 143,
+    "resName": "LEU",
+    "min_dist": 2.82
+  },
+  {
+    "chain": "A",
+    "resSeq": 144,
+    "resName": "SER",
+    "min_dist": 4.23
+  },
+  {
+    "chain": "A",
+    "resSeq": 146,
+    "resName": "LEU",
+    "min_dist": 2.77
+  },
+  {
+    "chain": "A",
+    "resSeq": 147,
+    "resName": "LEU",
+    "min_dist": 4.48
+  },
+  {
+    "chain": "B",
+    "resSeq": 100,
+    "resName": "LEU",
+    "min_dist": 2.54
+  },
+  {
+    "chain": "B",
+    "resSeq": 151,
+    "resName": "GLN",
+    "min_dist": 4.16
+  }
+]

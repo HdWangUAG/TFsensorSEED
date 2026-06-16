@@ -1,0 +1,39 @@
+{
+  "_convention": "ALL residue numbering in this project uses the MODEL/design index (the AcrR_dimer.fasta / PDB index we design on, 1..182). The wet-lab construct labels (e.g. F128W, L156R) are recorded once as 'wetlab_alias' for traceability only; they are model index + 9. Do NOT use experimental numbering anywhere in code/figures/results.",
+  "wetlab_to_model_offset": -9,
+  "variants": {
+    "wt": {
+      "prefix": "wt",
+      "mutate": null,
+      "phenotype": "Responds to progesterone & testosterone (1-100 uM, max ~150000 a.u.); ~no cortisol response in tested range; estradiol non-responder. Tight DNA binder (apo ~34 A), no basal leak."
+    },
+    "f119w": {
+      "prefix": "f119w",
+      "model_mutation": "F119W",
+      "mutate": "119:W",
+      "wetlab_alias": "F128W",
+      "phenotype": "Sensitivity amplifier: Test/Prog dynamic range shifts left ~3 orders (0.01-0.1 uM); GAINS significant cortisol response (0.1-2 uM). Apo ~34 A, no basal leak."
+    },
+    "l147r": {
+      "prefix": "l147r",
+      "model_mutation": "L147R",
+      "mutate": "147:R",
+      "wetlab_alias": "L156R",
+      "phenotype": "Specificity switch: inverts to cortisol (sensitive from 0.5 uM), retains moderate progesterone, ~loses testosterone (antagonist); max amplitude attenuated (~25000 a.u.); apo pre-opened (~36.5 A) -> ~10% basal leak, hyper-sensitive 1-5 uM."
+    },
+    "r123e": {
+      "prefix": "r123e",
+      "model_mutation": "R123E",
+      "mutate": "123:E",
+      "wetlab_alias": null,
+      "phenotype": "DESIGN positive-control graft (estrogen carboxylate clamp): aims to bind estradiol's 3-OH phenol and repel the 4-en-3-one keto decoys."
+    },
+    "r123d": {
+      "prefix": "r123d",
+      "model_mutation": "R123D",
+      "mutate": "123:D",
+      "wetlab_alias": null,
+      "phenotype": "DESIGN positive-control graft (Asp variant of the carboxylate clamp)."
+    }
+  }
+}

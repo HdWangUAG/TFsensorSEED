@@ -1,5 +1,8 @@
 Task_ID,Task_Type,Assigned_Node,Status,Target_Ligand,Batch_File,Start_Time,Completion_Time,Notes
-tier1_batch_01,flex-ddG,Node-Beta,PENDING,-,data/split/batch_01.csv,-,-,1000 sequences
-tier1_batch_02,flex-ddG,Node-Beta,PENDING,-,data/split/batch_02.csv,-,-,1000 sequences
-tier2_fep_01,rbfe,Node-Alpha,RUNNING,Estradiol,-,2026-06-16,-,L147R Prototype
-tier2_fep_02,rbfe,Node-Gamma,PENDING,Testosterone,-,-,-,L147R Decoy Arbiter
+fep_demo_l147r,rbfe,Node-Alpha,DONE,Cortisol,-,2026-06-15,2026-06-15,L147Rxcortisol cycle ddG=-8.6kJ/mol sign-correct; results/stage3_fep/proto_l147r_cortisol/FEP_DEMO_RESULTS.md
+fep_e106l_spec,rbfe,Node-Alpha,DONE,multi,-,2026-06-16,2026-06-16,E106L 4-ligand+apo converged but fails vs assay (GIGO 2nd-shell+unstable pose); results/stage3_fep/e106l_specificity/SPECIFICITY_RESULTS.md
+gate2lig_testosterone,boltz-2lig-gate,Node-Alpha,RUNNING,Testosterone,-,2026-06-16,-,2-ligand homodimer gate all 71 D-ring designs; results/stage3_dring/gate2lig/gate2lig.json
+gen_screen_prog,gen+flexddG,Node-Alpha,QUEUED,Progesterone,-,-,-,ligand-aware D-ring+S/T/N/Q(C20) bias keep A-ring; waits for GPU; results/stage3_prog/
+gen_screen_cort,gen+flexddG,Node-Alpha,QUEUED,Cortisol,-,-,-,R123E anchor+polar D-ring; waits for GPU; results/stage3_cort/
+progcort_2lig_gate,boltz-2lig-gate,Node-Alpha,PENDING,Progesterone/Cortisol,-,-,-,run on screen leads after gen_screen completes
+ligand_rbfe_triad,ligand-rbfe,Node-Beta,PENDING,test/prog/cort,-,-,-,DEV build dDDG specificity executor; identical A-ring maps cleanly estradiol excluded; avoids E106L 2nd-shell pitfall

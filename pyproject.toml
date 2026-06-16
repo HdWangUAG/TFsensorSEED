@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tfsensor-seed"
+version = "0.1.0"
+description = "Estradiol-specific AcrR biosensor design (multi-model filter funnel; split out of LC-SEED)"
+requires-python = ">=3.10"
+# Runtime deps are provided by the LC-SEED uv envs + the Protenix/PLACER conda envs.
+# Install this package editable INTO one of those envs to make `import tfsensor` work:
+#   ~/LC-Seed/envs/app/.venv/bin/pip install -e .
+dependencies = []
+
+[tool.setuptools]
+packages = ["tfsensor"]
