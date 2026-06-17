@@ -55,3 +55,7 @@ LMPNN_CKPT = get("TFSENSOR_LMPNN_CKPT",
 LMPNN_PY     = get("TFSENSOR_LMPNN_PY",     os.path.join(LC_SEED, "envs/ligandmpnn/.venv/bin/python"))
 PYROSETTA_PY = get("TFSENSOR_PYROSETTA_PY", os.path.join(LC_SEED, "envs/pyrosetta/.venv/bin/python"))
 BOLTZ_BIN    = get("TFSENSOR_BOLTZ_BIN",    os.path.join(LC_SEED, "envs/boltz2/.venv/bin/boltz"))
+
+# Rosetta molfile_to_params.py (flex-ddG ligand .params generation). Empty = fall
+# back to a ~ search / legacy LCSEED_MOLFILE_TO_PARAMS env var (see physics_score).
+MOLFILE_TO_PARAMS = get("TFSENSOR_MOLFILE_TO_PARAMS", "")

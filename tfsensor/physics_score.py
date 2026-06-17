@@ -27,8 +27,15 @@ import sys
 
 
 def _extract_ligand_block(holo_pdb):
-    """Return HETATM lines (heavy atoms) of the ligand and the protein ATOM lines."""
+    """Return HETATM lines (heavy atoms) of the ligand and the protein ATOM lines.
+
+    Homodimer holo scaffolds may carry one ligand copy per protomer (chains L and M
+    from a 2-ligand Boltz fold). flex-ddG scores a single dimer-vs-ligand interface,
+    so we keep only the FIRST ligand chain encountered and drop the symmetric copy.
+    1-ligand scaffolds (single chain L) are unaffected.
+    """
     lig, prot = [], []
+    lig_chain = None
     for l in open(holo_pdb):
         rec = l[:6].strip()
         if rec == "HETATM":
@@ -38,6 +45,11 @@ def _extract_ligand_block(holo_pdb):
             el = (l[76:78].strip() or l[12:16].strip()[0]).upper()
             if el == "H":
                 continue
+            chain = l[21]
+            if lig_chain is None:
+                lig_chain = chain
+            elif chain != lig_chain:
+                continue          # second pocket copy in a 2-ligand homodimer fold
             lig.append(l)
         elif rec in ("ATOM", "TER"):
             prot.append(l)
@@ -65,22 +77,30 @@ def _ligand_pdb_to_mol(lig_lines, smiles, out_mol):
 
 
 def _molfile_to_params(mol_path, name, work_dir):
-    """Run LC-SEED's molfile_to_params; return (params_path, ligand_pdb_path)."""
-    sys.path.insert(0, os.path.expanduser("~/LC-Seed"))
-    from lcseed import config  # resolves LCSEED_MOLFILE_TO_PARAMS / pyrosetta python
+    """Run Rosetta's molfile_to_params; return (params_path, ligand_pdb_path).
+
+    Tool + interpreter resolve via tfsensor.config (env/.env), so no dependency on
+    the lcseed scaffold package. The molfile_to_params.py location is set by
+    TFSENSOR_MOLFILE_TO_PARAMS (or legacy LCSEED_MOLFILE_TO_PARAMS), falling back to
+    a ~ search for backward compatibility on the original node.
+    """
+    from tfsensor.config import PYROSETTA_PY, MOLFILE_TO_PARAMS
     m2p = None
-    for cand in [os.environ.get("LCSEED_MOLFILE_TO_PARAMS")]:
+    for cand in (MOLFILE_TO_PARAMS,
+                 os.environ.get("TFSENSOR_MOLFILE_TO_PARAMS"),
+                 os.environ.get("LCSEED_MOLFILE_TO_PARAMS")):
         if cand and os.path.exists(cand):
             m2p = cand
-    if m2p is None:  # best-effort search
+            break
+    if m2p is None:  # best-effort search (works where Rosetta lives under ~)
         r = subprocess.run(["find", os.path.expanduser("~"), "-name",
                             "molfile_to_params.py"], capture_output=True, text=True)
         cands = [x for x in r.stdout.split() if x]
         m2p = cands[0] if cands else None
     if not m2p:
-        raise RuntimeError("molfile_to_params.py not found")
-    py = config.pyrosetta_python()
-    subprocess.run([py, m2p, "-n", name, "--clobber", "-p",
+        raise RuntimeError("molfile_to_params.py not found "
+                           "(set TFSENSOR_MOLFILE_TO_PARAMS in .env)")
+    subprocess.run([PYROSETTA_PY, m2p, "-n", name, "--clobber", "-p",
                     os.path.join(work_dir, name), mol_path],
                    cwd=work_dir, check=True)
     return (os.path.join(work_dir, name + ".params"),

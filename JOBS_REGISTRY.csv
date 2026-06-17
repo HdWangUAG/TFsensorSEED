@@ -2,7 +2,12 @@ Task_ID,Task_Type,Assigned_Node,Status,Target_Ligand,Batch_File,Start_Time,Compl
 fep_demo_l147r,rbfe,Node-Alpha,DONE,Cortisol,-,2026-06-15,2026-06-15,L147Rxcortisol cycle ddG=-8.6kJ/mol sign-correct; results/stage3_fep/proto_l147r_cortisol/FEP_DEMO_RESULTS.md
 fep_e106l_spec,rbfe,Node-Alpha,DONE,multi,-,2026-06-16,2026-06-16,E106L 4-ligand+apo converged but fails vs assay (GIGO 2nd-shell+unstable pose); results/stage3_fep/e106l_specificity/SPECIFICITY_RESULTS.md
 gate2lig_testosterone,boltz-2lig-gate,Node-Alpha,RUNNING,Testosterone,-,2026-06-16,-,2-ligand homodimer gate all 71 D-ring designs; results/stage3_dring/gate2lig/gate2lig.json
-gen_screen_prog,gen+flexddG,Node-Alpha,QUEUED,Progesterone,-,-,-,ligand-aware D-ring+S/T/N/Q(C20) bias keep A-ring; waits for GPU; results/stage3_prog/
-gen_screen_cort,gen+flexddG,Node-Alpha,QUEUED,Cortisol,-,-,-,R123E anchor+polar D-ring; waits for GPU; results/stage3_cort/
+wt_holo_2lig_refold,boltz-fold,Node-aspartate,DONE,multi,-,2026-06-16,2026-06-16,re-folded all 4 WT holo with 1 steroid per protomer (chains A B + ligands L M); fixes 1-ligand homodimer asymmetry; conf 0.91-0.92 ligand_iptm 0.95-0.96; results/wt_holo_2lig/
+gen_screen_prog,gen+flexddG,Node-aspartate,DONE,Progesterone,-,2026-06-16,2026-06-16,5 designs scored (2-lig scaffold); prog-selective leads des0002(I61L+Q88T margin-1.39) des0000(I61L+Q88L); margins ~1kcal near noise floor; results/stage3_prog/screen.json
+gen_screen_cort,gen+flexddG,Node-aspartate,DONE,Cortisol,-,2026-06-16,2026-06-16,10 designs scored; cort-selective leads all carry R123E anchor: des0007(I61L+Q88T+R123E margin-1.73) des0008 des0002(I61V+Q88I+R123E); results/stage3_cort/screen.json
+flexddg_env_fix,infra,Node-aspartate,DONE,-,-,2026-06-16,2026-06-16,decoupled physics_score from lcseed (uses tfsensor.config.PYROSETTA_PY)+MOLFILE_TO_PARAMS knob; molfile_to_params.py+rosetta_py copied to ~/rosetta_tools/; portable for all nodes; COMMIT-WORTHY
+gate2lig_prog,boltz-2lig-gate,Node-aspartate,DONE,Progesterone,-,2026-06-17,2026-06-17,2-lig homodimer apo+holo gate top3 seeds1/42; 3/3 PASS 34A rule; lead des0002(I61L+Q88T) selective+clean; results/stage3_prog/gate2lig/gate.json
+gate2lig_cort,boltz-2lig-gate,Node-aspartate,DONE,Cortisol,-,2026-06-17,2026-06-17,gate top5; only 1/5 pass: des0001(I61V+Q88L+R123E); top-specificity des0007/8/2 predicted LEAKY (apo>35.5); results/stage3_cort/gate2lig/gate.json
+allostery_lcseed_fix,infra,Node-aspartate,DONE,-,-,2026-06-17,2026-06-17,made lcseed import optional in allostery.py (dbd_distance local fallback = mean A/B Ca dist at 37/40); gate now runs without lcseed; COMMIT-WORTHY
 progcort_2lig_gate,boltz-2lig-gate,Node-Alpha,PENDING,Progesterone/Cortisol,-,-,-,run on screen leads after gen_screen completes
 ligand_rbfe_triad,ligand-rbfe,Node-Beta,PENDING,test/prog/cort,-,-,-,DEV build dDDG specificity executor; identical A-ring maps cleanly estradiol excluded; avoids E106L 2nd-shell pitfall

@@ -38,8 +38,31 @@ HANDOFF recipe (no `~/LC-Seed/envs`, no `~/my_ligandmpnn`); tools live in `/opt`
   All four seed1 WT holo poses verified intact (test/prog/cort/estradiol, 2688 protein ATOM + chain-L
   ligand HETATM each; HETATM counts scale by steroid size — cortisol 26 > prog 23 > test 21 > estr 20).
   seed42/2024 Boltz replicates + Protenix outputs also synced. **Tier-0/1/1.5 are all runnable here now.**
-- **Ready to launch a campaign — assignment still TBD with owner.** Must own a results dir NOT owned by
-  Alpha (gate2lig/prog/cort/fep are Alpha's per §4) to keep merges clean — assignment TBD with owner.
+- **2-ligand WT holo refold (2026-06-16, this node's first GPU compute):** owner flagged that the
+  synced WT scaffolds folded only ONE steroid into the AcrR homodimer (chains A,B + 1 ligand L) —
+  an unphysical asymmetry. Re-folded **all four** (test/prog/cort/estradiol) with a steroid per
+  protomer (ligands L+M) via `boltz_holo_inputs` (default chains A,B already emits 2 ligand blocks;
+  affinity head auto-dropped — Boltz can't score 2 copies). Cached MSA wired into the YAMLs (no MSA
+  server dep). Outputs in `results/wt_holo_2lig/` (aspartate-owned; mirrors Alpha's path template so
+  `--boltz_root`/`_top_boltz_pose` resolve unchanged). **All four high-confidence** (conf 0.91–0.92,
+  ligand_iptm 0.95–0.96); both pockets filled, ligands ~19–20 Å apart. flex-ddG made 2-ligand-safe
+  (`physics_score._extract_ligand_block` now keeps only the first ligand chain — backward-compatible).
+  A/B verified gen is behavior-equivalent old-vs-new (richer ligand context: num_ligand_res 7→14).
+- **Prog/cort campaign on aspartate (2026-06-16):** `drive_prog_cort.sh` repointed to the 2-ligand
+  scaffolds, Alpha-gate wait removed (own GPU). Gen worked (prog **5**, cort **10** unique designs —
+  thin, as expected from the as-spec params; A/B-confirmed it's the spec not the refold).
+- **flex-ddG env gap FOUND + FIXED (2026-06-16):** first real screen run scored 0 — every worker
+  died at `from lcseed import config` (no `lcseed` pkg on aspartate) and `molfile_to_params.py` was
+  absent. The "Tier-1 ready here" bring-up claim was wrong (smoke only tested imports, not the
+  scoring path). FIX (portable, helps all nodes): decoupled `physics_score._molfile_to_params` from
+  lcseed → resolves pyrosetta python via `tfsensor.config.PYROSETTA_PY`; added `MOLFILE_TO_PARAMS`
+  config knob; copied `molfile_to_params.py` + its `rosetta_py` dep node-local to `~/rosetta_tools/`
+  (py3-OK, from a Rosetta 2020.08 bundle), wired `TFSENSOR_MOLFILE_TO_PARAMS` into `.env`. Validated
+  one worker end-to-end (prog des0000 dG=-23.25 vs WT -22.50). **Re-screen DONE** (prog 5/5, cort
+  10/10 scored): prog-selective **des0002 (I61L+Q88T, margin −1.39)**; cort-selective **des0007
+  (I61L+Q88T+R123E, margin −1.73)** — all cort leads carry the R123E anchor (matches recognition
+  code). Margins ~1 kcal = near the noise floor (see Established conclusions), so treat as a coarse
+  ranker → next tier is the 2-ligand Boltz gate + ligand-RBFE, NOT the margin alone.
 
 
 ## Established conclusions (trust these)
@@ -61,16 +84,18 @@ Tier-0 LigandMPNN gen → Tier-1 flex-ddG specificity screen → Tier-1.5 Boltz 
 | Testosterone 2-ligand gate | gate (all 71) | **running** (Alpha) | `results/stage3_dring/gate2lig/gate2lig.json` | re-running gate unbiased + homodimer-correct (1-lig gate was Boltz-specific, Protenix disagreed) |
 | FEP demo (L147R×cortisol) | Tier-2 | done | `results/stage3_fep/proto_l147r_cortisol/FEP_DEMO_RESULTS.md` + `FEP_demo_figure.png` | ΔΔG_bind −8.6 kJ/mol (BAR), sign-correct; pipeline validated |
 | E106L specificity FEP | Tier-2 | done | `results/stage3_fep/e106l_specificity/SPECIFICITY_RESULTS.md` | converged but **fails vs assay** — GIGO (E106 second-shell, unstable pose). Lesson: restrain pose + first-shell target |
-| **Progesterone** | gen+screen | **queued** (Alpha) | `results/stage3_prog/` | design: ligand-aware D-ring + mild S/T/N/Q (C20=O) bias, keep A-ring |
-| **Cortisol** | gen+screen | **queued** (Alpha) | `results/stage3_cort/` | design: **R123E anchor** + polar D-ring (S/T/N/Q) |
+| **Progesterone** | gen+screen+gate | **done** (aspartate, 2-lig) | `results/stage3_prog/GATE2LIG_SUMMARY.md` | 5 designs; **gate 3/3 pass**. Lead **des0002 (I61L+Q88T)** = selective (−1.39) + gates clean; des0000 backup |
+| **Cortisol** | gen+screen+gate | **done** (aspartate, 2-lig) | `results/stage3_prog/GATE2LIG_SUMMARY.md` | 10 designs; **gate 1/5 pass** — top-specificity leads (des0007/8/2, all R123E) predicted **leaky** (apo>35.5). Only **des0001 (I61V+Q88L+R123E)** is selective+clean |
 
 ## Wet-lab panel (current best, build-and-test)
-Testosterone: **des0039 / des0060 / des0044** (I61L+L85I) + single **E106L**. Cortisol: **R123E** (validated) + forthcoming cortisol designs. Judge by gate + FEP + wet-lab, NOT the ΔΔG margin.
+Testosterone: **des0039 / des0060 / des0044** (I61L+L85I) + single **E106L**. Cortisol: **R123E** (validated) + **des0001 (I61V+Q88L+R123E)** (gate-clean + selective; des0007 higher-specificity but predicted leaky). Progesterone: **des0002 (I61L+Q88T)** (gate-clean + selective) + des0000 backup. Judge by gate + FEP + wet-lab, NOT the ΔΔG margin.
 
 ## Next actions (claim by node, then check off)
 - [ ] (Alpha) finish testosterone 2-ligand gate → compare vs 1-ligand; pick survivors.
-- [ ] (Aspartate) finish prog/cort gen+screen → ranked leads.
-- [ ] (Aspartate) prog/cort 2-ligand gate on leads.
+- [x] (Aspartate) prog/cort gen+screen DONE → leads: prog des0002 (I61L+Q88T); cort des0007 (I61L+Q88T+R123E). See `results/stage3_prog/PROG_CORT_SCREEN_SUMMARY.md`.
+- [x] (Aspartate) prog/cort 2-ligand gate DONE. Survivors: prog des0002+des0000 (3/3 pass); cort des0001 only (1/5; top-specificity leads leaky). See `results/stage3_prog/GATE2LIG_SUMMARY.md`.
+- [ ] (Aspartate/Beta) ligand-RBFE on gate survivors (prog des0002, cort des0001) for the test/prog/cort triad — the rigorous specificity arbiter.
+- [ ] (owner) COMMIT the portable flex-ddG fix (physics_score.py off lcseed + config.py MOLFILE_TO_PARAMS) with the 2-lig scaffold + driver changes.
 - [ ] (Alpha) prog/cort FEP/ligand-RBFE.
 - [ ] (Beta) build **ligand-ligand RBFE executor** for the test/prog/cort triad → ΔΔΔG specificity (identical A-ring, C17 perturbation maps cleanly; estradiol excluded). This is the rigorous "explain the ΔΔΔG" tool and avoids the E106L second-shell pitfall.
 - [ ] (Beta) consider per-position LigandMPNN bias (current `--favor` is uniform across design positions).

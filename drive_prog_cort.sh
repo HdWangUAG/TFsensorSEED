@@ -14,15 +14,17 @@ cd "$HOME/TFsensorSEED"
 export PYTHONPATH=".:$HOME/LC-Seed"
 export PYTORCH_ALLOC_CONF=expandable_segments:True
 PYR="${TFSENSOR_PYROSETTA_PY:-$HOME/LC-Seed/envs/pyrosetta/.venv/bin/python}"
-PRED=results/stage1_wt_validation/boltz/seed1/boltz_results_inputs/predictions
-GATE_DONE=results/stage3_dring/gate2lig/GATE2LIG_DONE
+# 2-ligand WT holo scaffolds (one steroid per protomer, GPU-folded on node aspartate).
+# Same layout as Alpha's stage1 so --boltz_root/_top_boltz_pose resolve unchanged.
+BOLTZ_ROOT=results/wt_holo_2lig/boltz
+PRED=$BOLTZ_ROOT/seed1/boltz_results_inputs/predictions
 LOG=results/stage3_prog_cort.log
 
-echo "[$(date '+%F %T')] waiting for GPU (testosterone gate)..." | tee -a "$LOG"
-while [ ! -f "$GATE_DONE" ]; do sleep 300; done
-echo "[$(date '+%F %T')] GPU free -> starting prog/cort campaigns" | tee -a "$LOG"
+# Node aspartate has its own GPU, so no need to wait on Alpha's testosterone-gate handoff.
+echo "[$(date '+%F %T')] starting prog/cort campaigns on 2-ligand scaffolds" | tee -a "$LOG"
 
 gen () {  # $1=name $2=scaffold $3=design_res $4=anchor $5=favor
+  mkdir -p "results/stage3_$1"
   echo "[$(date '+%T')] GEN $1 (anchor=$4 favor=$5)" | tee -a "$LOG"
   $PYR -m tfsensor.ligandmpnn_gen --scaffold "$2" --out_dir "results/stage3_$1/gen" \
     --design_residues "$3" --anchor "$4" --favor "$5" \
@@ -32,9 +34,10 @@ gen () {  # $1=name $2=scaffold $3=design_res $4=anchor $5=favor
 }
 
 screen () {  # $1=name $2=target
+  mkdir -p "results/stage3_$1"
   echo "[$(date '+%T')] SCREEN $1 (target=$2)" | tee -a "$LOG"
   $PYR -m tfsensor.design_score panel --library "results/stage3_$1/library.json" \
-    --target "$2" --seeds 1 --jobs 32 --shards 16 --top 20 \
+    --target "$2" --boltz_root "$BOLTZ_ROOT" --seeds 1 --jobs 32 --shards 16 --top 20 \
     --work_root "results/stage3_$1/screen" --out_json "results/stage3_$1/screen.json" \
     >> "results/stage3_$1/screen.log" 2>&1 \
     && echo "[$(date '+%T')] SCREEN $1 done -> results/stage3_$1/screen.json" | tee -a "$LOG" \

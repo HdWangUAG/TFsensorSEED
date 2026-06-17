@@ -25,8 +25,15 @@ import math
 import os
 import sys
 
-sys.path.insert(0, os.path.expanduser("~/LC-Seed"))
-from lcseed.iterative_design.iterative_worker import calculate_multi_anchor_distance
+# LC-SEED's calculate_multi_anchor_distance is the canonical DBD metric, but the
+# lcseed package isn't present on every node. Use it when importable (keeps results
+# bit-identical with the original node); otherwise fall back to the local equivalent
+# in dbd_distance() below (same documented metric: mean A/B Cα distance at the anchors).
+try:
+    sys.path.insert(0, os.path.expanduser("~/LC-Seed"))
+    from lcseed.iterative_design.iterative_worker import calculate_multi_anchor_distance as _lcseed_mad
+except Exception:
+    _lcseed_mad = None
 
 ANCHORS = (37, 40)
 
@@ -45,7 +52,19 @@ def _ca_coords(pdb_path):
 
 
 def dbd_distance(pdb_path, anchors=ANCHORS):
-    return calculate_multi_anchor_distance(pdb_path, anchor_res_nums=anchors)
+    """Mean Cα distance between chains A and B at the DBD anchor residues (37/40).
+
+    Prefers LC-SEED's calculate_multi_anchor_distance; falls back to a local
+    computation with identical semantics when lcseed is unavailable.
+    """
+    if _lcseed_mad is not None:
+        return _lcseed_mad(pdb_path, anchor_res_nums=anchors)
+    ca = _ca_coords(pdb_path)
+    ds = [math.dist(ca[("A", a)], ca[("B", a)])
+          for a in anchors if ("A", a) in ca and ("B", a) in ca]
+    if not ds:
+        raise RuntimeError(f"no A/B Cα pair at anchors {anchors} in {pdb_path}")
+    return sum(ds) / len(ds)
 
 
 def couple_pocket_to_anchors(pdb_path, pocket_resnums, anchors=ANCHORS):
