@@ -1,0 +1,80 @@
+{
+  "AR": {
+    "receptor": "AR",
+    "uniprot": "P10275",
+    "ligand_code": "DHT",
+    "pdb": "7ztz",
+    "resolution": 1.4,
+    "n_candidates": 35,
+    "ligand_sdf": "data/ml/refs/AR_7ztz_DHT.sdf",
+    "ligand_chain": "A",
+    "ligand_heavy_atoms": 21,
+    "pocket_json": "data/ml/refs/AR_pocket.json",
+    "pocket_residues": 56
+  },
+  "ESR1": {
+    "receptor": "ESR1",
+    "uniprot": "P03372",
+    "ligand_code": "EST",
+    "pdb": "7nel",
+    "resolution": 1.45,
+    "n_candidates": 23,
+    "ligand_sdf": "data/ml/refs/ESR1_7nel_EST.sdf",
+    "ligand_chain": "A",
+    "ligand_heavy_atoms": 20,
+    "pocket_json": "data/ml/refs/ESR1_pocket.json",
+    "pocket_residues": 56
+  },
+  "ESR2": {
+    "receptor": "ESR2",
+    "uniprot": "Q92731",
+    "ligand_code": "EST",
+    "pdb": "3oll",
+    "resolution": 1.5,
+    "n_candidates": 5,
+    "ligand_sdf": "data/ml/refs/ESR2_3oll_EST.sdf",
+    "ligand_chain": "A",
+    "ligand_heavy_atoms": 20,
+    "pocket_json": "data/ml/refs/ESR2_pocket.json",
+    "pocket_residues": 50
+  },
+  "GR": {
+    "receptor": "GR",
+    "uniprot": "P04150",
+    "ligand_code": "HCY",
+    "pdb": "4p6x",
+    "resolution": 2.5,
+    "n_candidates": 1,
+    "ligand_sdf": "data/ml/refs/GR_4p6x_HCY.sdf",
+    "ligand_chain": "A",
+    "ligand_heavy_atoms": 26,
+    "pocket_json": "data/ml/refs/GR_pocket.json",
+    "pocket_residues": 56
+  },
+  "PR": {
+    "receptor": "PR",
+    "uniprot": "P06401",
+    "ligand_code": "STR",
+    "pdb": "1a28",
+    "resolution": 1.8,
+    "n_candidates": 1,
+    "ligand_sdf": "data/ml/refs/PR_1a28_STR.sdf",
+    "ligand_chain": "A",
+    "ligand_heavy_atoms": 23,
+    "pocket_json": "data/ml/refs/PR_pocket.json",
+    "pocket_residues": 54
+  },
+  "MR": {
+    "receptor": "MR",
+    "uniprot": "P08235",
+    "ligand_code": "AS4",
+    "pdb": "2aa2",
+    "resolution": 1.95,
+    "n_candidates": 1,
+    "ligand_sdf": "data/ml/refs/MR_2aa2_AS4.sdf",
+    "ligand_chain": "A",
+    "ligand_heavy_atoms": 26,
+    "pocket_json": "data/ml/refs/MR_pocket.json",
+    "pocket_residues": 57
+  }
+}

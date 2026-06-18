@@ -55,3 +55,18 @@ LMPNN_CKPT = get("TFSENSOR_LMPNN_CKPT",
 LMPNN_PY     = get("TFSENSOR_LMPNN_PY",     os.path.join(LC_SEED, "envs/ligandmpnn/.venv/bin/python"))
 PYROSETTA_PY = get("TFSENSOR_PYROSETTA_PY", os.path.join(LC_SEED, "envs/pyrosetta/.venv/bin/python"))
 BOLTZ_BIN    = get("TFSENSOR_BOLTZ_BIN",    os.path.join(LC_SEED, "envs/boltz2/.venv/bin/boltz"))
+
+# --- ML track (tfsensor/ml/) -----------------------------------------------
+# Dedicated GPU venv for the binding-ML work (torch-geometric, ESM-2, captum,
+# schnet/torchmd-net). Kept separate from the ligandmpnn env, whose torch is
+# pinned to its weights. The plan: ~/.claude/plans/composed-puzzling-church.md
+ML_PY        = get("TFSENSOR_ML_PY",        os.path.join(LC_SEED, "envs/ml/.venv/bin/python"))
+# Pretrained-scorer baselines (each lives in its own isolated env / binary).
+# gnina v1.3.x ships as a self-contained binary; default = the system install.
+GNINA_BIN    = get("TFSENSOR_GNINA_BIN",    "/usr/local/bin/gnina")
+GEMS_PY      = get("TFSENSOR_GEMS_PY",      os.path.join(LC_SEED, "envs/gems/.venv/bin/python"))
+PROLIF_PY    = get("TFSENSOR_PROLIF_PY",    os.path.join(LC_SEED, "envs/prolif/.venv/bin/python"))
+# Dataset / cache locations (filled in once acquired; see plan Phase 0).
+PDBBIND_DIR  = get("TFSENSOR_PDBBIND_DIR",  os.path.join(REPO_ROOT, "data/ml/pdbbind"))
+NRDATA_DIR   = get("TFSENSOR_NRDATA_DIR",   os.path.join(REPO_ROOT, "data/ml/nr_datasets"))
+ESM_CACHE_DIR = get("TFSENSOR_ESM_CACHE_DIR", os.path.join(REPO_ROOT, "data/ml/esm_cache"))

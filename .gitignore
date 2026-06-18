@@ -30,6 +30,14 @@ experimental_data/
 !data/AcrR_protein_only.pdb
 !data/AcrR_STR_001.pdb
 
+# ML track (tfsensor/ml/) generated/heavy data — reproducible, DO NOT COMMIT.
+# (CCD dump, parsed caches, mined tables, downloaded datasets, ESM cache)
+data/ml/cache/
+data/ml/*.csv
+data/ml/nr_datasets/
+data/ml/pdbbind/
+data/ml/esm_cache/
+
 # Exceptions: keep the prototype fep settings (but ignore big files)
 !results/stage3_fep/proto_l147r_cortisol/rbfe_spec.json
 !results/stage3_fep/proto_l147r_cortisol/SETUP_FEP.md
