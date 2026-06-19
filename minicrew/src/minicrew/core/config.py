@@ -171,3 +171,7 @@ MONGO_DB = get("MINICREW_MONGO_DB", "minicrew")
 QDRANT_URL = get("MINICREW_QDRANT_URL", "http://localhost:6333")
 QDRANT_COLLECTION = get("MINICREW_QDRANT_COLLECTION", "literature")
 EMBED_MODEL = get("MINICREW_EMBED_MODEL", "text-embedding-3-small")
+# Retrieval into a discussion: top-k by cosine similarity, dropping anything
+# below MIN_SCORE so an irrelevant note never gets injected just to fill k.
+LIT_TOPK = int(get("MINICREW_LIT_TOPK", "4"))
+LIT_MIN_SCORE = float(get("MINICREW_LIT_MIN_SCORE", "0.15"))

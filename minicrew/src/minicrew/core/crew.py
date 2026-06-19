@@ -198,7 +198,10 @@ def run_crew(name, extra_files=None, rounds=None, topology=None,
     rounds = rounds or crew.get("rounds", 1)
     ctx = context.build(crew.get("context_files"), extra_files)
     evidence = context.build(crew.get("evidence_files")) if crew.get("evidence_files") else ""
-    crew["_knowledge"] = knowledge.build(crew.get("knowledge"))
+    # Real runs retrieve literature semantically (top-k vs the task); mock/dry-run
+    # stay offline → fall back to whole-file injection.
+    kn_query = None if (mock or dry_run) else (crew.get("task") or crew.get("description"))
+    crew["_knowledge"] = knowledge.build(crew.get("knowledge"), query=kn_query)
 
     tag = "  [DRY RUN]" if dry_run else ("  [MOCK]" if mock else "")
     print(_c(f"\n=== MiniCrewAI: {crew['name']} ===", _BOLD))

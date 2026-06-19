@@ -41,12 +41,45 @@ def _files(category):
     return uniq
 
 
-def build(categories):
-    """Return a formatted, trust-labelled knowledge block (or "" if none)."""
+def _literature_retrieved(query):
+    """Top-k (cosine) literature relevant to `query`, or None to fall back to
+    files (DB down / no key / no client). Drops hits below LIT_MIN_SCORE."""
+    try:
+        from . import litdb
+        ok, _ = litdb.status()
+        if not ok:
+            return None
+        hits = [h for h in litdb.search(query, k=config.LIT_TOPK)
+                if h["score"] >= config.LIT_MIN_SCORE]
+    except Exception:
+        return None
+    trust = config.KNOWLEDGE_TRUST.get("literature", "unspecified")
+    if not hits:
+        return f"### [literature]  trust: {trust}\n(no note passed the relevance threshold for this task)"
+    blocks = [f"### [literature]  trust: {trust}  "
+              f"(top-{len(hits)} by semantic relevance to the task)"]
+    for h in hits:
+        blocks.append(f"[source: knowledge/literature/{h['name']} · "
+                      f"cosine {h['score']:.2f}]\n{h['body']}")
+    return "\n\n".join(blocks)
+
+
+def build(categories, query=None):
+    """Return a formatted, trust-labelled knowledge block (or "" if none).
+
+    When `query` is given and the DB is up, the `literature` category is
+    semantically retrieved (top-k) instead of dumping every note — the
+    context-bloat fix. All other categories are small/curated → injected whole.
+    """
     if not categories:
         return ""
     sections = []
     for cat in categories:
+        if cat == "literature" and query:
+            sec = _literature_retrieved(query)
+            if sec is not None:
+                sections.append(sec)
+                continue  # else fall through to whole-files injection
         files = _files(cat)
         if not files:
             continue
