@@ -12,7 +12,7 @@ import tempfile
 
 import streamlit as st
 
-from minicrew.core import config, distill, litstore
+from minicrew.core import config, distill, litstore, vision
 
 st.set_page_config(page_title="MiniCrew · Literature", page_icon="📚", layout="wide")
 
@@ -61,6 +61,9 @@ with st.sidebar:
     st.header("⚙️ Settings")
     librarian = st.selectbox("Librarian (extracts)", aliases, _default("claude_cli"))
     checker = st.selectbox("Checker (verifies)", aliases, _default("openai"))
+    vision_model = st.selectbox("Vision (reads figures)", aliases, _default("openai"),
+                                help="must be multimodal — openai/gemini/claude, "
+                                     "not claude_cli")
     do_verify = st.checkbox("Cross-check the numbers", value=True)
     st.divider()
     notes = litstore.list_notes()
@@ -135,6 +138,31 @@ with tab_add:
                     st.error(f"Failed: {exc}")
             if st.session_state.get("history"):
                 st.caption("✓ applied: " + " · ".join(st.session_state["history"]))
+
+            with st.expander("📊 Figure / table data (vision)"):
+                if upload and upload.name.lower().endswith(".pdf"):
+                    pg = st.text_input("pages (e.g. 3 or 2-4)", value="",
+                                       key="fig_pages")
+                    if st.button(f"Extract with {vision_model}"):
+                        try:
+                            with tempfile.NamedTemporaryFile(suffix=".pdf",
+                                                             delete=False) as tf:
+                                tf.write(upload.getvalue())
+                                tmp = tf.name
+                            with st.spinner("Reading figures/tables…"):
+                                data = vision.extract(tmp, pages=pg or None,
+                                                      model=vision_model)
+                            os.unlink(tmp)
+                            st.session_state["draft"] = edited + "\n\n" + data
+                            st.session_state["verify"] = None
+                            st.rerun()
+                        except Exception as exc:
+                            st.error(f"Failed: {exc}")
+                    st.caption("Appends vision-extracted data to the note — "
+                               "plot-read numbers are flagged APPROXIMATE.")
+                else:
+                    st.caption("Upload a PDF as the main paper to enable vision.")
+
             st.divider()
             if st.session_state.get("verify"):
                 st.markdown("**🔎 Fact-check**")

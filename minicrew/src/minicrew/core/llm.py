@@ -12,6 +12,7 @@ traceback.
 """
 from __future__ import annotations
 
+import base64
 import os
 import shutil
 import subprocess
@@ -175,6 +176,96 @@ def _claude_cli(spec, system, prompt):
         raise LLMError(f"claude CLI exited {res.returncode}: "
                        f"{(res.stderr or res.stdout)[:500]}")
     return res.stdout.strip()
+
+
+def _b64(path):
+    with open(path, "rb") as fh:
+        return base64.b64encode(fh.read()).decode()
+
+
+def call_vision(spec, system, prompt, image_paths, max_tokens=4000):
+    """Like call(), but with PNG images attached. Needs a multimodal API model
+    (openai / gemini / anthropic) — claude_cli has no image input."""
+    provider = spec["provider"]
+    if provider == "claude_cli":
+        raise LLMError("vision needs an API model — set the vision model to "
+                       "openai / gemini / claude (not claude_cli)")
+    if not spec.get("api_key"):
+        raise LLMError(f"no API key for alias {spec.get('alias')!r}")
+    try:
+        if provider == "openai":
+            return _openai_vision(spec, system, prompt, image_paths, max_tokens)
+        if provider == "gemini":
+            return _gemini_vision(spec, system, prompt, image_paths, max_tokens)
+        if provider == "anthropic":
+            return _anthropic_vision(spec, system, prompt, image_paths, max_tokens)
+        raise LLMError(f"vision unsupported for provider {provider!r}")
+    except requests.RequestException as exc:
+        raise LLMError(f"{provider} vision request failed: {exc}") from exc
+    except (KeyError, IndexError, ValueError) as exc:
+        raise LLMError(f"{provider} vision payload error: {exc}") from exc
+
+
+def _openai_vision(spec, system, prompt, image_paths, max_tokens):
+    url = spec["base_url"].rstrip("/") + "/chat/completions"
+    content = [{"type": "text", "text": prompt}]
+    for p in image_paths:
+        content.append({"type": "image_url",
+                        "image_url": {"url": f"data:image/png;base64,{_b64(p)}"}})
+    body = {"model": spec["model"], "messages": [
+        {"role": "system", "content": system},
+        {"role": "user", "content": content}]}
+    if _is_newer_openai(spec["model"]):
+        body["max_completion_tokens"] = max(max_tokens, 8000)
+        body["reasoning_effort"] = spec.get("reasoning_effort", "low")
+    else:
+        body["max_tokens"] = max_tokens
+    r = requests.post(url, headers={"Authorization": f"Bearer {spec['api_key']}",
+                      "Content-Type": "application/json"},
+                      json=body, timeout=config.HTTP_TIMEOUT)
+    _raise_for_status(r)
+    text = (r.json()["choices"][0]["message"].get("content") or "").strip()
+    if not text:
+        raise LLMError("empty vision response (raise max_tokens)")
+    return text
+
+
+def _gemini_vision(spec, system, prompt, image_paths, max_tokens):
+    base = spec["base_url"].rstrip("/")
+    url = f"{base}/models/{spec['model']}:generateContent?key={spec['api_key']}"
+    parts = [{"text": prompt}]
+    for p in image_paths:
+        parts.append({"inline_data": {"mime_type": "image/png", "data": _b64(p)}})
+    if _is_thinking_gemini(spec["model"]):
+        max_tokens = max(max_tokens, 8000)
+    body = {"systemInstruction": {"parts": [{"text": system}]},
+            "contents": [{"role": "user", "parts": parts}],
+            "generationConfig": {"maxOutputTokens": max_tokens}}
+    r = requests.post(url, json=body, timeout=config.HTTP_TIMEOUT)
+    _raise_for_status(r)
+    cand = r.json()["candidates"][0]
+    text = "".join(pt.get("text", "")
+                   for pt in cand.get("content", {}).get("parts", [])).strip()
+    if not text:
+        raise LLMError(f"empty vision response (finishReason="
+                       f"{cand.get('finishReason', '?')})")
+    return text
+
+
+def _anthropic_vision(spec, system, prompt, image_paths, max_tokens):
+    url = spec["base_url"].rstrip("/") + "/v1/messages"
+    content = [{"type": "text", "text": prompt}]
+    for p in image_paths:
+        content.append({"type": "image", "source": {
+            "type": "base64", "media_type": "image/png", "data": _b64(p)}})
+    body = {"model": spec["model"], "max_tokens": max_tokens, "system": system,
+            "messages": [{"role": "user", "content": content}]}
+    r = requests.post(url, headers={"x-api-key": spec["api_key"],
+                      "anthropic-version": "2023-06-01",
+                      "content-type": "application/json"},
+                      json=body, timeout=config.HTTP_TIMEOUT)
+    _raise_for_status(r)
+    return "".join(b.get("text", "") for b in r.json()["content"]).strip()
 
 
 def _raise_for_status(r):

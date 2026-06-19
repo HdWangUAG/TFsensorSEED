@@ -11,7 +11,7 @@ import shutil
 import subprocess
 import sys
 
-from .core import config, crew, distill, litdb
+from .core import config, crew, distill, litdb, vision
 
 
 def _cmd_run(args):
@@ -64,6 +64,23 @@ def _cmd_distill(args):
     if args.verify:
         print("\n" + "=" * 60 + "\nFACT-CHECK (" + args.check_model + ")\n" + "=" * 60)
         print(distill.verify(source, note, model=args.check_model, mock=args.mock))
+
+
+def _cmd_figures(args):
+    try:
+        out = vision.extract(args.pdf, pages=args.pages, model=args.model)
+    except Exception as exc:  # render or vision error
+        print(f"error: {exc}", file=sys.stderr)
+        return
+    if not out.strip():
+        print("no data extracted (no pages rendered?)")
+        return
+    if args.out:
+        with open(args.out, "w", encoding="utf-8") as fh:
+            fh.write(out)
+        print(f"[saved → {args.out}]  — CONFIRM any plot-read numbers")
+    else:
+        print(out)
 
 
 def _cmd_index(_args):
@@ -167,6 +184,14 @@ def build_parser():
                    help="model alias for the fact-checker (default: openai)")
     d.add_argument("--mock", action="store_true", help="no API calls")
     d.set_defaults(func=_cmd_distill)
+
+    g = sub.add_parser("figures", help="vision-extract figure/table data from a "
+                       "PDF (needs a multimodal model; confirm plot-read numbers)")
+    g.add_argument("pdf", help="PDF path")
+    g.add_argument("--pages", default=None, help="page or range, e.g. 3 or 2-4")
+    g.add_argument("--model", "-m", default="openai", help="vision model alias")
+    g.add_argument("--out", "-o", default=None, help="write extracted data here")
+    g.set_defaults(func=_cmd_figures)
 
     sub.add_parser("index", help="(re)index literature notes into Mongo + Qdrant"
                    ).set_defaults(func=_cmd_index)
