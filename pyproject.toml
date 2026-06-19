@@ -10,7 +10,17 @@ requires-python = ">=3.10"
 # Runtime deps are provided by the LC-SEED uv envs + the Protenix/PLACER conda envs.
 # Install this package editable INTO one of those envs to make `import tfsensor` work:
 #   ~/LC-Seed/envs/app/.venv/bin/pip install -e .
+# MiniCrewAI (the `minicrew` console script) needs `requests` + `pyyaml`, which
+# the TFsensor conda env already ships; install editable to get `minicrew` on PATH.
 dependencies = []
 
+[project.scripts]
+minicrew = "minicrew.cli:main"
+
 [tool.setuptools]
-packages = ["tfsensor"]
+packages = ["tfsensor", "minicrew", "minicrew.core"]
+
+[tool.setuptools.package-dir]
+tfsensor = "tfsensor"
+minicrew = "minicrew/src/minicrew"
+"minicrew.core" = "minicrew/src/minicrew/core"

@@ -1,0 +1,24 @@
+{
+  "run_id": "20260618_202006_steroid_plan_review",
+  "crew": "steroid_plan_review",
+  "topology": "parallel_blind",
+  "timestamp": "20260618_202006",
+  "input_hash": "7a73066688b7",
+  "outputs": [
+    {
+      "agent": "claude_biophysics",
+      "prompt_seen": "## Material to review\n# Steroid Sensor Design \u2014 plan (stub fixture for smoke test)\nGoal: ML model predicting steroid-ligand binding to engineered AcrR mutants.\nApproach: template-pose docking -> 84-dim contact fingerprint -> XGBoost.\nTrain on nuclear-receptor binding data, transfer to AcrR mutants.\n\n\n## Your task\nReview this material per your role. Be concrete and severity-ordered.",
+      "reply": "[MOCK claude] I reviewed the input (384 chars). My single biggest concern would go here."
+    },
+    {
+      "agent": "gemini_challenger",
+      "prompt_seen": "## Material to review\n# Steroid Sensor Design \u2014 plan (stub fixture for smoke test)\nGoal: ML model predicting steroid-ligand binding to engineered AcrR mutants.\nApproach: template-pose docking -> 84-dim contact fingerprint -> XGBoost.\nTrain on nuclear-receptor binding data, transfer to AcrR mutants.\n\n\n## Your task\nReview this material per your role. Be concrete and severity-ordered.",
+      "reply": "[MOCK gemini] I reviewed the input (384 chars). My single biggest concern would go here."
+    },
+    {
+      "agent": "moderator",
+      "prompt_seen": "## Original material\n# Steroid Sensor Design \u2014 plan (stub fixture for smoke test)\nGoal: ML model predicting steroid-ligand binding to engineered AcrR mutants.\nApproach: template-pose docking -> 84-dim contact fingerprint -> XGBoost.\nTrain on nuclear-receptor binding data, transfer to AcrR mutants.\n\n\n## Review by claude_biophysics\n[MOCK claude] I reviewed the input (384 chars). My single biggest concern would go here.\n\n## Review by gemini_challenger\n[MOCK gemini] I reviewed the input (384 chars). My single biggest concern would go here.\n\n## Your task\nSynthesize the two reviews into the required sections.",
+      "reply": "[MOCK moderator] I reviewed the input (610 chars). My single biggest concern would go here."
+    }
+  ]
+}

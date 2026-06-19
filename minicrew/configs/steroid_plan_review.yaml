@@ -1,0 +1,58 @@
+# MiniCrewAI crew: review a steroid-biosensor design plan from several angles.
+#
+# topology:
+#   parallel_blind  — reviewers critique independently (blind to each other),
+#                     then the moderator surfaces agreement/disagreement.
+#   round_robin     — reviewers debate in turn over `rounds`, seeing each other.
+# Override at runtime with --topology / --rounds.
+name: steroid_plan_review
+project: TFsensorSEED — estradiol-specific AcrR biosensor
+topology: parallel_blind
+
+task: >
+  Critically review the attached design plan for engineering an AcrR-family
+  transcription factor into an estradiol (β-estradiol) -specific biosensor with
+  good selectivity against related steroids (progesterone, cortisol, testosterone).
+  Stress-test the scientific logic, the screening funnel, and the go/no-go gates.
+
+# Always-injected review material (globs, repo-relative). --file is appended.
+context_files:
+  - PIPELINE.md
+  - PROGRESS.md
+
+# Grounding evidence — shown as a separate, "more reliable than priors" block.
+evidence_files:
+  - DEV_STATUS.md
+
+# Typed project knowledge (knowledge/ + auto docs/agent_memory), each block
+# injected with its source + trust tier. Categories: computational | literature
+# | experimental | pitfalls.
+knowledge:
+  - pitfalls
+  - computational
+  - experimental
+
+# Each role: a model alias (see `minicrew models`) + a persona agent from
+# minicrew/prompts/personas/ (referenced via persona_file). Personas are grouped
+# by *perspective*, not by tool. Spread across providers for diversity.
+roles:
+  - name: Structural Biologist
+    model: claude_cli            # Claude — via your Claude Code subscription
+    persona_file: personas/structural_biologist.md
+    word_limit: 250
+
+  - name: Structural Energetics       # Rosetta flex-ddG + Boltz + FEP methodology
+    model: openai                # ChatGPT — gpt-5.5
+    persona_file: personas/structural_energetics.md
+    word_limit: 250
+
+  - name: Cheminformatics             # RDKit / ProLIF — ligand recognition & decoys
+    model: gemini                # gemini-2.5-flash
+    persona_file: personas/cheminformatics.md
+    word_limit: 250
+
+# Final synthesis turn (sees every review). Remove to skip.
+synthesizer:
+  name: PI / Moderator
+  model: claude_cli
+  persona_file: personas/moderator.md

@@ -16,6 +16,12 @@ __pycache__/
 
 # Results & Heavy Data (DO NOT COMMIT)
 results/
+
+# MiniCrewAI run outputs (keep the dirs, ignore the artifacts)
+minicrew/conversations/*
+minicrew/runs/*
+!minicrew/conversations/.gitkeep
+!minicrew/runs/.gitkeep
 experimental_data/
 *.pdb
 *.xtc
