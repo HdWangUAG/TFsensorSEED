@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import shutil
+import subprocess
 import sys
 
 from .core import config, crew, distill, litdb
@@ -25,21 +26,34 @@ def _cmd_run(args):
     )
 
 
+def _read_doc(path):
+    """Read a paper source. PDFs are converted with `pdftotext -layout` (keeps
+    table columns); '-' reads stdin; everything else is read as text."""
+    if path == "-":
+        return sys.stdin.read()
+    if path.lower().endswith(".pdf"):
+        out = subprocess.run(["pdftotext", "-layout", path, "-"],
+                             capture_output=True, text=True, timeout=180)
+        if out.returncode != 0:
+            raise RuntimeError(out.stderr[:300] or "pdftotext failed")
+        return out.stdout
+    with open(path, encoding="utf-8", errors="replace") as fh:
+        return fh.read()
+
+
 def _cmd_distill(args):
-    if args.input == "-":
-        text = sys.stdin.read()
-    else:
-        if args.input.lower().endswith(".pdf"):
-            print("error: distill takes text, not PDF. Convert first, e.g. "
-                  "`pdftotext paper.pdf paper.txt`", file=sys.stderr)
-            return
-        with open(args.input, encoding="utf-8", errors="replace") as fh:
-            text = fh.read()
+    try:
+        text = _read_doc(args.input)
+        si_text = _read_doc(args.si) if args.si else ""
+    except (OSError, RuntimeError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return
     if not text.strip():
         print("error: empty input", file=sys.stderr)
         return
 
-    note = distill.distill(text, model=args.model, mock=args.mock)
+    source = distill.compose(text, si_text)
+    note = distill.distill(source, model=args.model, mock=args.mock)
     if args.out:
         with open(args.out, "w", encoding="utf-8") as fh:
             fh.write(note)
@@ -49,7 +63,7 @@ def _cmd_distill(args):
 
     if args.verify:
         print("\n" + "=" * 60 + "\nFACT-CHECK (" + args.check_model + ")\n" + "=" * 60)
-        print(distill.verify(text, note, model=args.check_model, mock=args.mock))
+        print(distill.verify(source, note, model=args.check_model, mock=args.mock))
 
 
 def _cmd_index(_args):
@@ -139,8 +153,10 @@ def build_parser():
 
     d = sub.add_parser("distill", help="distil a paper's text into a "
                        "knowledge/literature note (verify the numbers before use)")
-    d.add_argument("input", help="paper text file, or '-' for stdin "
-                   "(convert PDFs first: pdftotext paper.pdf paper.txt)")
+    d.add_argument("input", help="paper file (.pdf auto-converted) or '-' for stdin")
+    d.add_argument("--si", default=None,
+                   help="supplementary-information file (.pdf/.txt) to mine for "
+                        "data tables")
     d.add_argument("--out", "-o", default=None,
                    help="write the note here (default: print to stdout)")
     d.add_argument("--model", "-m", default="claude_cli",

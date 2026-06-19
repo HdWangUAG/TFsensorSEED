@@ -17,9 +17,8 @@ from minicrew.core import config, distill, litstore
 st.set_page_config(page_title="MiniCrew · Literature", page_icon="📚", layout="wide")
 
 
-def _extract_text(upload, pasted):
-    if pasted and pasted.strip():
-        return pasted
+def _file_text(upload):
+    """Text from an uploaded file; PDFs via `pdftotext -layout` (keeps tables)."""
     if upload is None:
         return ""
     data = upload.getvalue()
@@ -28,8 +27,8 @@ def _extract_text(upload, pasted):
             tf.write(data)
             tmp = tf.name
         try:
-            out = subprocess.run(["pdftotext", tmp, "-"], capture_output=True,
-                                 text=True, timeout=120)
+            out = subprocess.run(["pdftotext", "-layout", tmp, "-"],
+                                 capture_output=True, text=True, timeout=120)
         except FileNotFoundError:
             st.error("`pdftotext` not found — install poppler-utils, or paste text.")
             return ""
@@ -37,6 +36,10 @@ def _extract_text(upload, pasted):
             os.unlink(tmp)
         return out.stdout
     return data.decode("utf-8", "replace")
+
+
+def _main_text(upload, pasted):
+    return pasted if (pasted and pasted.strip()) else _file_text(upload)
 
 
 def _suggest_name(upload):
@@ -73,25 +76,32 @@ tab_add, tab_browse = st.tabs(["➕ Add a paper", "📖 Browse"])
 
 with tab_add:
     col1, col2 = st.columns(2)
-    upload = col1.file_uploader("Upload PDF / txt", type=["pdf", "txt"])
-    pasted = col2.text_area("…or paste paper text", height=130,
+    upload = col1.file_uploader("Main paper (PDF / txt)", type=["pdf", "txt"])
+    si_upload = col1.file_uploader("Supplementary info (optional, PDF / txt)",
+                                   type=["pdf", "txt"])
+    pasted = col2.text_area("…or paste paper text", height=110,
                             placeholder="Paste the paper's text here")
+    tables = col2.text_area("Paste data tables (optional)", height=110,
+                            placeholder="Paste a mangled SI table here and it'll "
+                                        "be transcribed into the note")
 
     if st.button("🧪 Distill", type="primary"):
-        text = _extract_text(upload, pasted)
+        text = _main_text(upload, pasted)
+        si_text = _file_text(si_upload)
         if not text.strip():
-            st.warning("Give me a PDF or some text first.")
+            st.warning("Give me a main paper (PDF or text) first.")
         else:
-            st.session_state["src_text"] = text
+            source = distill.compose(text, si_text, tables)
+            st.session_state["source"] = source
             st.session_state["save_name"] = _suggest_name(upload)
             try:
                 with st.spinner(f"Distilling with {librarian}…"):
-                    st.session_state["draft"] = distill.distill(text, model=librarian)
+                    st.session_state["draft"] = distill.distill(source, model=librarian)
                 st.session_state["verify"] = None
                 if do_verify:
                     with st.spinner(f"Fact-checking with {checker}…"):
                         st.session_state["verify"] = distill.verify(
-                            text, st.session_state["draft"], model=checker)
+                            source, st.session_state["draft"], model=checker)
             except Exception as exc:  # surface provider errors in the UI
                 st.error(f"Failed: {exc}")
 
@@ -113,7 +123,7 @@ with tab_add:
         if st.button("💾 Save to library"):
             path = litstore.save(name, edited)
             st.success(f"Saved → {os.path.relpath(path, config.REPO_ROOT)}")
-            for k in ("draft", "verify", "src_text"):
+            for k in ("draft", "verify", "source"):
                 st.session_state.pop(k, None)
             st.rerun()
 

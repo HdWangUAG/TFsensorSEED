@@ -23,7 +23,13 @@ note for a protein-engineering project (an AcrR steroid biosensor). Rules:
 - Extract ONLY what the text supports. Never invent numbers, DOIs, or claims.
 - After EVERY quantitative claim, append the verbatim source sentence as
   〔src: "..."〕 so a human can verify in seconds.
-- If a field is not determinable from the text, write TODO — do not guess.
+- The source may contain a `=== SUPPLEMENTARY INFORMATION ===` block — MINE IT:
+  SI is often where the real data lives (mutant panels, dose-response, stats).
+- Transcribe key DATA TABLES faithfully (as markdown tables or value lists) and
+  cite the table label, e.g. 〔src: Table S2〕. Do not invent or interpolate rows.
+- Figure data: only report a figure's numbers if they are stated in the caption
+  or text; do NOT estimate values off a plotted bar/curve (you cannot see it).
+- If a field/section has nothing in the source, write TODO — do not guess.
 - Claim-level and concise; capture effect sizes and conditions, not prose."""
 
 _CHECKER_SYS = """\
@@ -45,15 +51,27 @@ def _template():
         return "(template missing)"
 
 
-def distill(text, model="claude_cli", mock=False):
-    """Return a filled literature note (Markdown) drafted from `text`."""
+def compose(text, si_text="", tables_text=""):
+    """Combine main text + supplementary info + pasted tables into one labelled
+    source string (used for both distilling and verifying)."""
+    parts = [text.strip()]
+    if tables_text and tables_text.strip():
+        parts.append("=== PASTED DATA TABLES ===\n" + tables_text.strip())
+    if si_text and si_text.strip():
+        parts.append("=== SUPPLEMENTARY INFORMATION ===\n" + si_text.strip())
+    return "\n\n".join(p for p in parts if p)
+
+
+def distill(source, model="claude_cli", mock=False):
+    """Return a filled literature note (Markdown) drafted from `source`
+    (use compose() to fold in SI / pasted tables first)."""
     if mock:
         return ("---\ntitle: <MOCK>\n---\n## Claim / finding\n"
                 "- [MOCK distill] one claim 〔src: \"...\"〕")
     spec = config.resolve_model(model)
     prompt = (f"Template to fill:\n\n{_template()}\n\n"
-              f"---\nPaper text:\n\n{text}")
-    return llm.call(spec, _LIBRARIAN_SYS, prompt, max_tokens=2500, temperature=0.2)
+              f"---\nSource:\n\n{source}")
+    return llm.call(spec, _LIBRARIAN_SYS, prompt, max_tokens=3000, temperature=0.2)
 
 
 def verify(text, draft, model="openai", mock=False):
