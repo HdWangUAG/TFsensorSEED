@@ -27,11 +27,21 @@ scripts/minicrew index                          # index the .md notes
 scripts/minicrew search "aromatic A-ring recognition of estradiol"
 ```
 
-Embedder is pluggable (`core/embed.py`, set via `.env`):
-`MINICREW_EMBED_BACKEND=openai` (text-embedding-3, API, 1536-dim) or `=st` (local
-SentenceTransformers, default `allenai/specter2_base`, 768-dim — for academic
-papers; needs torch + sentence-transformers in `minicrew/.venv`). Each backend
-uses its own Qdrant collection, so switching is reversible — just `index` again.
+Embedder is pluggable (`core/embed.py`, set via `MINICREW_EMBED_BACKEND` in `.env`):
+
+| backend | model | dim | notes |
+|---|---|---|---|
+| `openai` | text-embedding-3-small | 1536 | API, zero infra |
+| `st` | `allenai/specter2_base` | 768 | local SentenceTransformers |
+| `specter2` | SPECTER2 + proximity adapter | 768 | **best for papers**; CLS pooling |
+
+Each backend uses its own Qdrant collection, so switching is reversible — just
+`index` again. The local backends need extra venv packages:
+
+```bash
+# default-PyPI CUDA wheel works; the CPU-index 2.6/2.7 wheels are broken here
+minicrew/.venv/bin/pip install torch sentence-transformers adapters
+```
 
 Or install once for a global `minicrew` command:
 
