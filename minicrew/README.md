@@ -27,6 +27,12 @@ scripts/minicrew index                          # index the .md notes
 scripts/minicrew search "aromatic A-ring recognition of estradiol"
 ```
 
+Embedder is pluggable (`core/embed.py`, set via `.env`):
+`MINICREW_EMBED_BACKEND=openai` (text-embedding-3, API, 1536-dim) or `=st` (local
+SentenceTransformers, default `allenai/specter2_base`, 768-dim — for academic
+papers; needs torch + sentence-transformers in `minicrew/.venv`). Each backend
+uses its own Qdrant collection, so switching is reversible — just `index` again.
+
 Or install once for a global `minicrew` command:
 
 ```bash

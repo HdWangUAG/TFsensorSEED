@@ -11,7 +11,7 @@ import shutil
 import subprocess
 import sys
 
-from .core import config, crew, distill, litdb, vision
+from .core import config, crew, distill, embed, litdb, vision
 
 
 def _cmd_run(args):
@@ -90,7 +90,8 @@ def _cmd_index(_args):
               "start it with: cd minicrew && docker compose up -d", file=sys.stderr)
         return
     n = litdb.index_all()
-    print(f"indexed {n} literature note(s) into Mongo + Qdrant ({msg})")
+    print(f"indexed {n} literature note(s) with {embed.info()} → "
+          f"Qdrant '{config.QDRANT_COLLECTION}' + Mongo ({msg})")
 
 
 def _cmd_search(args):
@@ -115,6 +116,11 @@ def _cmd_search(args):
                 body = body[end + 4:]
         snippet = " ".join(body.split())[:240]
         print(f"        {snippet}…")
+    scores = [h["score"] for h in hits]
+    if scores:
+        mean = sum(scores) / len(scores)
+        print(f"\nsimilarity: min={min(scores):.3f} max={max(scores):.3f} "
+              f"mean={mean:.3f}  ·  embedder {embed.info()}")
 
 
 def _cmd_list(_args):

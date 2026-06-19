@@ -16,7 +16,6 @@ import os
 
 from . import config, embed, litstore
 
-_VECTOR_SIZE = {"text-embedding-3-small": 1536, "text-embedding-3-large": 3072}
 _META = ("title", "authors", "year", "doi", "tags", "trust", "relevance")
 
 
@@ -59,8 +58,7 @@ def index_all():
     if not notes:
         return 0
     mc, qc = _clients()
-    dim = _VECTOR_SIZE.get(config.EMBED_MODEL, 1536)
-    _ensure_collection(qc, dim)
+    _ensure_collection(qc, embed.dim())
     col = mc[config.MONGO_DB]["literature"]
     bodies = [litstore.read(n["path"]) for n in notes]
     vecs = embed.embed(bodies)

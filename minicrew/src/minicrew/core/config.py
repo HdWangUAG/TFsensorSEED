@@ -169,8 +169,22 @@ KNOWLEDGE_TRUST = {
 MONGO_URI = get("MINICREW_MONGO_URI", "mongodb://localhost:27017")
 MONGO_DB = get("MINICREW_MONGO_DB", "minicrew")
 QDRANT_URL = get("MINICREW_QDRANT_URL", "http://localhost:6333")
-QDRANT_COLLECTION = get("MINICREW_QDRANT_COLLECTION", "literature")
-EMBED_MODEL = get("MINICREW_EMBED_MODEL", "text-embedding-3-small")
+
+# Embedder: pluggable backend. "openai" = text-embedding-3-* over the API
+# (default; zero infra). "st" = a local SentenceTransformers model (e.g. SPECTER2
+# for academic papers) — needs torch + sentence-transformers in the venv.
+EMBED_BACKEND = get("MINICREW_EMBED_BACKEND", "openai")          # openai | st
+EMBED_MODEL = get("MINICREW_EMBED_MODEL", "text-embedding-3-small")  # openai model
+EMBED_ST_MODEL = get("MINICREW_EMBED_ST_MODEL", "allenai/specter2_base")  # st model
+EMBED_BATCH = int(get("MINICREW_EMBED_BATCH", "32"))
+
+# Vector dim changes with the model, so the collection is keyed to the embedder
+# (old collections survive for rollback). Override with MINICREW_QDRANT_COLLECTION.
+_default_coll = ("literature" if EMBED_BACKEND == "openai"
+                 else "literature_" + EMBED_ST_MODEL.split("/")[-1]
+                 .replace("-", "_").replace(".", "_")[:24])
+QDRANT_COLLECTION = get("MINICREW_QDRANT_COLLECTION", _default_coll)
+
 # Retrieval into a discussion: top-k by cosine similarity, dropping anything
 # below MIN_SCORE so an irrelevant note never gets injected just to fill k.
 LIT_TOPK = int(get("MINICREW_LIT_TOPK", "4"))
