@@ -17,7 +17,48 @@ from . import config
 
 _OPENAI_DIMS = {"text-embedding-3-small": 1536, "text-embedding-3-large": 3072}
 _ST_FALLBACK = "sentence-transformers/allenai-specter"  # native ST SPECTER v1
-_st_model = None  # lazy singleton
+_st_model = None       # lazy singletons
+_sp_tok = _sp_model = None
+
+
+# --- backend: real SPECTER2 (base + proximity adapter, CLS pooling) ----------
+def _load_specter2():
+    global _sp_tok, _sp_model
+    if _sp_model is None:
+        import torch
+        # The proximity adapter ships only a .bin, which transformers refuses to
+        # torch.load on torch<2.6 (CVE-2025-32434). Give a clear message instead
+        # of a cryptic ValueError; use MINICREW_EMBED_BACKEND=st (specter2_base)
+        # until a working torch>=2.6 is available.
+        if tuple(int(x) for x in torch.__version__.split("+")[0].split(".")[:2]) < (2, 6):
+            raise RuntimeError(
+                f"specter2 (proximity adapter) needs torch>=2.6 but found "
+                f"{torch.__version__}; set MINICREW_EMBED_BACKEND=st for "
+                f"specter2_base instead")
+        from transformers import AutoTokenizer
+        from adapters import AutoAdapterModel
+        _sp_tok = AutoTokenizer.from_pretrained("allenai/specter2_base")
+        _sp_model = AutoAdapterModel.from_pretrained("allenai/specter2_base")
+        _sp_model.load_adapter("allenai/specter2", source="hf",
+                               load_as="proximity", set_active=True)
+        _sp_model.eval()
+    return _sp_tok, _sp_model
+
+
+def _embed_specter2(texts):
+    import torch
+    tok, model = _load_specter2()
+    out = []
+    for i in range(0, len(texts), config.EMBED_BATCH):
+        batch = list(texts[i:i + config.EMBED_BATCH])
+        inputs = tok(batch, padding=True, truncation=True, max_length=512,
+                     return_tensors="pt")
+        with torch.no_grad():
+            res = model(**inputs)
+        emb = res.last_hidden_state[:, 0, :]                      # CLS token
+        emb = torch.nn.functional.normalize(emb, p=2, dim=1)     # L2 normalise
+        out.extend(emb.cpu().tolist())
+    return out
 
 
 # --- backend: local SentenceTransformers ------------------------------------
@@ -62,6 +103,8 @@ def _embed_openai(texts):
 # --- public API -------------------------------------------------------------
 def embed(texts):
     """Embed a list of strings → list of L2-normalised vectors."""
+    if config.EMBED_BACKEND == "specter2":
+        return _embed_specter2(texts)
     if config.EMBED_BACKEND == "st":
         return _embed_st(texts)
     return _embed_openai(texts)
@@ -73,6 +116,8 @@ def embed_one(text):
 
 def dim():
     """Vector dimension of the active embedder (for collection creation)."""
+    if config.EMBED_BACKEND == "specter2":
+        return _load_specter2()[1].config.hidden_size       # 768
     if config.EMBED_BACKEND == "st":
         m = _load_st()
         get_dim = (getattr(m, "get_embedding_dimension", None)
@@ -83,6 +128,8 @@ def dim():
 
 def info():
     """Short description of the active embedder, for logs/CLI."""
+    if config.EMBED_BACKEND == "specter2":
+        return "specter2:allenai/specter2+proximity-adapter"
     if config.EMBED_BACKEND == "st":
         return f"st:{config.EMBED_ST_MODEL}"
     return f"openai:{config.EMBED_MODEL}"
