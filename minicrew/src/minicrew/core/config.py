@@ -162,3 +162,12 @@ KNOWLEDGE_TRUST = {
     "computational": "MEDIUM — a lead, not a verdict; demand uncertainty / replicates",
     "pitfalls":      "HARD CONSTRAINT — known mistakes; do not repeat or re-propose these",
 }
+
+# --- literature index (Phase 2): Mongo full text + Qdrant vectors ------------
+# These INDEX the .md notes (source-of-truth) for semantic retrieval; see
+# minicrew/docker-compose.yml. Embeddings reuse the OpenAI/ELM key.
+MONGO_URI = get("MINICREW_MONGO_URI", "mongodb://localhost:27017")
+MONGO_DB = get("MINICREW_MONGO_DB", "minicrew")
+QDRANT_URL = get("MINICREW_QDRANT_URL", "http://localhost:6333")
+QDRANT_COLLECTION = get("MINICREW_QDRANT_COLLECTION", "literature")
+EMBED_MODEL = get("MINICREW_EMBED_MODEL", "text-embedding-3-small")

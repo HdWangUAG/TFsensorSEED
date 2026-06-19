@@ -15,6 +15,15 @@ scripts/minicrew list                                     # available crews
 scripts/minicrew run steroid_plan_review --mock           # full pipeline, 0 tokens
 scripts/minicrew run steroid_plan_review --file plan.md    # the real thing
 scripts/minicrew distill paper.txt --verify -o knowledge/literature/x.md  # paper → note
+scripts/minicrew-app                                      # web UI (literature library)
+```
+
+Semantic literature search (optional; needs the DB containers):
+
+```bash
+cd minicrew && docker compose up -d && cd ..   # start Mongo + Qdrant
+scripts/minicrew index                          # index the .md notes
+scripts/minicrew search "aromatic A-ring recognition of estradiol"
 ```
 
 Or install once for a global `minicrew` command:

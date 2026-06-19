@@ -7,4 +7,8 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 export PYTHONPATH="$HERE/minicrew/src:${PYTHONPATH:-}"
-exec python3 -m minicrew "$@"
+# Prefer the dedicated venv (has requests, pyyaml, pymongo, qdrant-client);
+# fall back to the system python3 (CLI still works minus the DB index/search).
+PY="$HERE/minicrew/.venv/bin/python"
+[ -x "$PY" ] || PY=python3
+exec "$PY" -m minicrew "$@"

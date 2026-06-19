@@ -10,7 +10,7 @@ import argparse
 import shutil
 import sys
 
-from .core import config, crew, distill
+from .core import config, crew, distill, litdb
 
 
 def _cmd_run(args):
@@ -50,6 +50,40 @@ def _cmd_distill(args):
     if args.verify:
         print("\n" + "=" * 60 + "\nFACT-CHECK (" + args.check_model + ")\n" + "=" * 60)
         print(distill.verify(text, note, model=args.check_model, mock=args.mock))
+
+
+def _cmd_index(_args):
+    ok, msg = litdb.status()
+    if not ok:
+        print(f"error: literature DB not reachable ({msg})\n"
+              "start it with: cd minicrew && docker compose up -d", file=sys.stderr)
+        return
+    n = litdb.index_all()
+    print(f"indexed {n} literature note(s) into Mongo + Qdrant ({msg})")
+
+
+def _cmd_search(args):
+    ok, msg = litdb.status()
+    if not ok:
+        print(f"error: literature DB not reachable ({msg})\n"
+              "start it with: cd minicrew && docker compose up -d", file=sys.stderr)
+        return
+    hits = litdb.search(args.query, k=args.k, tags=args.tag or None)
+    if not hits:
+        print("no matches (did you run `minicrew index`?)")
+        return
+    for h in hits:
+        tags = ", ".join(map(str, h.get("tags") or []))
+        print(f"\n[{h['score']:.3f}] {h['title']}  ({h['name']})")
+        if tags:
+            print(f"        tags: {tags}")
+        body = h["body"]
+        if body.startswith("---"):                 # skip frontmatter in the snippet
+            end = body.find("\n---", 3)
+            if end != -1:
+                body = body[end + 4:]
+        snippet = " ".join(body.split())[:240]
+        print(f"        {snippet}…")
 
 
 def _cmd_list(_args):
@@ -117,6 +151,16 @@ def build_parser():
                    help="model alias for the fact-checker (default: openai)")
     d.add_argument("--mock", action="store_true", help="no API calls")
     d.set_defaults(func=_cmd_distill)
+
+    sub.add_parser("index", help="(re)index literature notes into Mongo + Qdrant"
+                   ).set_defaults(func=_cmd_index)
+
+    s = sub.add_parser("search", help="semantic-search the literature index")
+    s.add_argument("query", help="natural-language query")
+    s.add_argument("-k", type=int, default=5, help="number of results")
+    s.add_argument("--tag", action="append", default=[],
+                   help="filter by tag (repeatable)")
+    s.set_defaults(func=_cmd_search)
 
     sub.add_parser("list", help="list available crews").set_defaults(func=_cmd_list)
     sub.add_parser("models", help="show model aliases + key status").set_defaults(
