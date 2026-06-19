@@ -74,6 +74,31 @@ def distill(source, model="claude_cli", mock=False):
     return llm.call(spec, _LIBRARIAN_SYS, prompt, max_tokens=3000, temperature=0.2)
 
 
+_REVISE_SYS = """\
+You are revising an existing literature note for the user, conversationally.
+Rules:
+- Apply the user's INSTRUCTION, but stay grounded ONLY in the provided SOURCE
+  (main text + any SUPPLEMENTARY INFORMATION / pasted tables). Never invent data.
+- If the instruction asks for information that is NOT present in the source, do
+  not fabricate it — put a clear "TODO — not found in provided source" where it
+  would go (so the user knows to upload more). Do not guess values.
+- Keep the note's section structure and the 〔src: "..."〕 anchors; add anchors
+  (verbatim source sentences, or 〔src: Table N〕) for any newly added numbers.
+- Preserve everything the user did NOT ask to change.
+- Output the COMPLETE revised note in Markdown — nothing else, no commentary."""
+
+
+def refine(source, note, instruction, model="claude_cli", mock=False):
+    """Conversationally revise `note` per `instruction`, grounded in `source`.
+    Stateless: the note carries the accumulated state, so repeated calls chain."""
+    if mock:
+        return note + f"\n\n<!-- mock refine: {instruction[:60]} -->"
+    spec = config.resolve_model(model)
+    prompt = (f"SOURCE:\n{source}\n\n---\nCURRENT NOTE:\n{note}\n\n---\n"
+              f"INSTRUCTION:\n{instruction}")
+    return llm.call(spec, _REVISE_SYS, prompt, max_tokens=3500, temperature=0.2)
+
+
 def verify(text, draft, model="openai", mock=False):
     """Cross-check the draft's numbers against the source text."""
     if mock:

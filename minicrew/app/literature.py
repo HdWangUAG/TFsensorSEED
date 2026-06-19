@@ -113,19 +113,50 @@ with tab_add:
             edited = st.text_area("note", value=st.session_state["draft"],
                                   height=460, label_visibility="collapsed")
         with right:
+            st.subheader("💬 Refine by chat")
+            st.caption("Tell the librarian what to change — it re-reads the "
+                       "source (main + SI + tables), never invents.")
+            with st.form("refine", clear_on_submit=True):
+                instruction = st.text_input(
+                    "instruction", label_visibility="collapsed",
+                    placeholder="e.g. add the dose-response from SI Table 3; "
+                                "fix the space group; pull the full mutant panel")
+                apply = st.form_submit_button("Apply ✦")
+            if apply and instruction.strip():
+                try:
+                    with st.spinner(f"Revising with {librarian}…"):
+                        st.session_state["draft"] = distill.refine(
+                            st.session_state["source"], edited, instruction,
+                            model=librarian)
+                    st.session_state.setdefault("history", []).append(instruction)
+                    st.session_state["verify"] = None
+                    st.rerun()
+                except Exception as exc:
+                    st.error(f"Failed: {exc}")
+            if st.session_state.get("history"):
+                st.caption("✓ applied: " + " · ".join(st.session_state["history"]))
+            st.divider()
             if st.session_state.get("verify"):
-                st.subheader("🔎 Fact-check")
+                st.markdown("**🔎 Fact-check**")
                 st.markdown(st.session_state["verify"])
-            else:
-                st.info("Verify was off — confirm the numbers yourself.")
+
         name = st.text_input("Save as", value=st.session_state.get("save_name",
                                                                    "new_paper.md"))
-        if st.button("💾 Save to library"):
+        c1, c2 = st.columns(2)
+        if c1.button("💾 Save to library"):
             path = litstore.save(name, edited)
             st.success(f"Saved → {os.path.relpath(path, config.REPO_ROOT)}")
-            for k in ("draft", "verify", "source"):
+            for k in ("draft", "verify", "source", "history"):
                 st.session_state.pop(k, None)
             st.rerun()
+        if c2.button("🔎 Re-verify numbers"):
+            try:
+                with st.spinner(f"Fact-checking with {checker}…"):
+                    st.session_state["verify"] = distill.verify(
+                        st.session_state["source"], edited, model=checker)
+                st.rerun()
+            except Exception as exc:
+                st.error(f"Failed: {exc}")
 
 with tab_browse:
     notes = litstore.list_notes()
