@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# MiniCrew web app launcher (Streamlit). Uses the dedicated minicrew/.venv so the
+# science conda env stays clean. Opens the Literature Library in your browser.
+#
+#   scripts/minicrew-app                 # default port 8501
+#   scripts/minicrew-app --server.port 8600
+set -euo pipefail
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+VENV="$HERE/minicrew/.venv"
+if [ ! -x "$VENV/bin/streamlit" ]; then
+  echo "venv not found. Create it:" >&2
+  echo "  python3 -m venv $VENV && $VENV/bin/pip install streamlit pyyaml requests" >&2
+  exit 1
+fi
+export PYTHONPATH="$HERE/minicrew/src:${PYTHONPATH:-}"
+exec "$VENV/bin/streamlit" run "$HERE/minicrew/app/literature.py" "$@"
