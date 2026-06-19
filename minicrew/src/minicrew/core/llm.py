@@ -116,9 +116,18 @@ def _openai(spec, system, prompt, max_tokens, temperature):
     return text
 
 
+def _is_thinking_gemini(model):
+    """Gemini 2.5+ / 3.x think by default; thinking tokens draw from
+    maxOutputTokens, so a small cap truncates the visible answer mid-sentence."""
+    m = model.lower()
+    return any(s in m for s in ("gemini-2.5", "gemini-3"))
+
+
 def _gemini(spec, system, prompt, max_tokens, temperature):
     base = spec["base_url"].rstrip("/")
     url = f"{base}/models/{spec['model']}:generateContent?key={spec['api_key']}"
+    if _is_thinking_gemini(spec["model"]):
+        max_tokens = max(max_tokens, 8000)   # leave room for thoughts + answer
     body = {
         "systemInstruction": {"parts": [{"text": system}]},
         "contents": [{"role": "user", "parts": [{"text": prompt}]}],
@@ -130,7 +139,12 @@ def _gemini(spec, system, prompt, max_tokens, temperature):
     r = requests.post(url, json=body, timeout=config.HTTP_TIMEOUT)
     _raise_for_status(r)
     cand = r.json()["candidates"][0]
-    return "".join(p.get("text", "") for p in cand["content"]["parts"]).strip()
+    parts = cand.get("content", {}).get("parts", [])
+    text = "".join(p.get("text", "") for p in parts).strip()
+    if not text:
+        reason = cand.get("finishReason", "?")
+        raise LLMError(f"empty response (finishReason={reason}; raise max_tokens)")
+    return text
 
 
 def _claude_cli(spec, system, prompt):

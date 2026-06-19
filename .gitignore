@@ -22,6 +22,9 @@ minicrew/conversations/*
 minicrew/runs/*
 !minicrew/conversations/.gitkeep
 !minicrew/runs/.gitkeep
+# Raw source PDFs — keep only the distilled .md notes, not the binaries
+minicrew/knowledge/**/*.pdf
+minicrew/.venv/
 experimental_data/
 *.pdb
 *.xtc

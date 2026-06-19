@@ -14,6 +14,7 @@ scripts/minicrew models                                   # which providers are 
 scripts/minicrew list                                     # available crews
 scripts/minicrew run steroid_plan_review --mock           # full pipeline, 0 tokens
 scripts/minicrew run steroid_plan_review --file plan.md    # the real thing
+scripts/minicrew distill paper.txt --verify -o knowledge/literature/x.md  # paper → note
 ```
 
 Or install once for a global `minicrew` command:

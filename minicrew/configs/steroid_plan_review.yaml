@@ -31,6 +31,7 @@ knowledge:
   - pitfalls
   - computational
   - experimental
+  - literature
 
 # Each role: a model alias (see `minicrew models`) + a persona agent from
 # minicrew/prompts/personas/ (referenced via persona_file). Personas are grouped

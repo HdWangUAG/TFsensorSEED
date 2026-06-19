@@ -10,7 +10,7 @@ import argparse
 import shutil
 import sys
 
-from .core import config, crew
+from .core import config, crew, distill
 
 
 def _cmd_run(args):
@@ -23,6 +23,33 @@ def _cmd_run(args):
         mock=args.mock,
         out_path=args.out,
     )
+
+
+def _cmd_distill(args):
+    if args.input == "-":
+        text = sys.stdin.read()
+    else:
+        if args.input.lower().endswith(".pdf"):
+            print("error: distill takes text, not PDF. Convert first, e.g. "
+                  "`pdftotext paper.pdf paper.txt`", file=sys.stderr)
+            return
+        with open(args.input, encoding="utf-8", errors="replace") as fh:
+            text = fh.read()
+    if not text.strip():
+        print("error: empty input", file=sys.stderr)
+        return
+
+    note = distill.distill(text, model=args.model, mock=args.mock)
+    if args.out:
+        with open(args.out, "w", encoding="utf-8") as fh:
+            fh.write(note)
+        print(f"[draft saved → {args.out}]  — verify the numbers + DOI before use")
+    else:
+        print(note)
+
+    if args.verify:
+        print("\n" + "=" * 60 + "\nFACT-CHECK (" + args.check_model + ")\n" + "=" * 60)
+        print(distill.verify(text, note, model=args.check_model, mock=args.mock))
 
 
 def _cmd_list(_args):
@@ -75,6 +102,21 @@ def build_parser():
                         "(no keys, no tokens) — proves the wiring")
     r.add_argument("--out", "-o", default=None, help="transcript output path")
     r.set_defaults(func=_cmd_run)
+
+    d = sub.add_parser("distill", help="distil a paper's text into a "
+                       "knowledge/literature note (verify the numbers before use)")
+    d.add_argument("input", help="paper text file, or '-' for stdin "
+                   "(convert PDFs first: pdftotext paper.pdf paper.txt)")
+    d.add_argument("--out", "-o", default=None,
+                   help="write the note here (default: print to stdout)")
+    d.add_argument("--model", "-m", default="claude_cli",
+                   help="model alias for the librarian (default: claude_cli)")
+    d.add_argument("--verify", action="store_true",
+                   help="cross-check the draft's numbers with a second model")
+    d.add_argument("--check-model", default="openai",
+                   help="model alias for the fact-checker (default: openai)")
+    d.add_argument("--mock", action="store_true", help="no API calls")
+    d.set_defaults(func=_cmd_distill)
 
     sub.add_parser("list", help="list available crews").set_defaults(func=_cmd_list)
     sub.add_parser("models", help="show model aliases + key status").set_defaults(

@@ -18,8 +18,17 @@ need per-claim provenance + trust. Distil each paper into one short note using
 5. **Keep the DOI/URL** — provenance is what makes a claim weigh more than a
    model's guess.
 
-## Speeding up distillation (optional)
-You can let an LLM draft the note from a paper, then you verify the numbers:
-`claude -p "Distil this paper into the _TEMPLATE.md format" < paper.txt`.
-Later this becomes a `literature_librarian` tool agent (fetch + parse + draft),
-but a human check on the numbers stays in the loop.
+## Speeding up distillation — `minicrew distill`
+Let the librarian draft the note and a second model fact-check the numbers:
+
+```bash
+pdftotext paper.pdf paper.txt                 # PDFs → text first
+scripts/minicrew distill paper.txt --verify \
+    --out minicrew/knowledge/literature/2022_lin_qacr.md
+```
+
+The draft anchors every number to its verbatim source sentence 〔src: "..."〕;
+`--verify` runs a *different* model to cross-check each number against the text.
+You still confirm the numbers + DOI + tags before it's trusted. Defaults:
+librarian = `claude_cli`, checker = `openai` (override with `--model` /
+`--check-model`).
