@@ -16,7 +16,8 @@ scripts/minicrew run steroid_plan_review --mock           # full pipeline, 0 tok
 scripts/minicrew run steroid_plan_review --file plan.md    # the real thing
 scripts/minicrew distill paper.pdf --si si.pdf --verify -o knowledge/literature/x.md
 scripts/minicrew figures paper.pdf --pages 2-4 --model openai   # read figure/table data (vision)
-scripts/minicrew-app                                      # web UI (literature library)
+scripts/minicrew-app                                      # web UI in the browser
+scripts/minicrew-desktop                                  # same UI in a native window (pywebview)
 ```
 
 Semantic literature search (optional; needs the DB containers):
@@ -80,6 +81,23 @@ Set per-crew with `topology:` (override at runtime with `--topology`):
 
 The information boundary — who sees what — is the whole point. It lives in
 `_reviewer_prompt` / `_round_prompt` / `_moderator_prompt` in `crew.py`.
+
+## Desktop app
+
+`scripts/minicrew-desktop` runs the Streamlit UI inside a native window
+(pywebview) instead of a browser tab — it starts Streamlit headless on a free
+port, waits for it, opens the window, and stops the server on close. Run it on a
+machine **with a display** that also has the stack (venv + `docker compose up`).
+
+```bash
+minicrew/.venv/bin/pip install pywebview          # macOS/Windows: nothing else
+# Linux also needs a webview backend:  pip install 'pywebview[qt]'
+scripts/minicrew-desktop
+```
+
+(`MINICREW_DESKTOP_NOWINDOW=1 scripts/minicrew-desktop` exercises the launch
+without a GUI — for headless smoke tests.) Package into a double-click binary
+later with PyInstaller.
 
 ## Layout
 

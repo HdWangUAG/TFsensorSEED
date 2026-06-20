@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# MiniCrew desktop app — native window wrapping the Streamlit UI (pywebview).
+# Run on a machine WITH a display; the Mongo+Qdrant containers should be up.
+#
+#   scripts/minicrew-desktop
+#
+# Linux needs a webview backend: `pip install 'pywebview[qt]'` (or system
+# webkit2gtk + PyGObject). macOS/Windows use the OS-native webview — nothing extra.
+set -euo pipefail
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PY="$HERE/minicrew/.venv/bin/python"
+[ -x "$PY" ] || PY=python3
+exec "$PY" "$HERE/minicrew/app/desktop.py" "$@"

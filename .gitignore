@@ -46,3 +46,4 @@ experimental_data/
 !results/stage3_fep/proto_l147r_cortisol/SPECIFICITY_RESULTS.md
 !results/stage3_fep/e106l_specificity/SPECIFICITY_RESULTS.md
 minicrew/.data/
+minicrew/.streamlit-desktop.log
