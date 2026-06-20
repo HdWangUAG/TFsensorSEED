@@ -91,7 +91,8 @@ def _persona(role):
             cand = os.path.join(PROMPTS_DIR, p)
             p = cand if os.path.isfile(cand) else os.path.join(config.REPO_ROOT, p)
         with open(p, encoding="utf-8") as fh:
-            return fh.read().strip()
+            from .agents import split_frontmatter   # strip metadata, keep body
+            return split_frontmatter(fh.read())[1].strip()
     return role.get("persona", "You are a helpful, critical expert.")
 
 

@@ -19,7 +19,7 @@ import time
 import urllib.request
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))    # minicrew/
-APP = os.path.join(HERE, "app", "literature.py")
+APP = os.path.join(HERE, "app", "Home.py")
 VENV_STREAMLIT = os.path.join(HERE, ".venv", "bin", "streamlit")
 
 

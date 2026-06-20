@@ -14,8 +14,6 @@ import streamlit as st
 
 from minicrew.core import config, distill, litstore, vision
 
-st.set_page_config(page_title="MiniCrew · Literature", page_icon="📚", layout="wide")
-
 
 def _file_text(upload):
     """Text from an uploaded file; PDFs via `pdftotext -layout` (keeps tables)."""

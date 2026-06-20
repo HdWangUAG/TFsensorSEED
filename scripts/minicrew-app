@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # MiniCrew web app launcher (Streamlit). Uses the dedicated minicrew/.venv so the
-# science conda env stays clean. Opens the Literature Library in your browser.
+# science conda env stays clean. Opens the multipage workbench in your browser.
 #
 #   scripts/minicrew-app                 # default port 8501
 #   scripts/minicrew-app --server.port 8600
@@ -13,4 +13,7 @@ if [ ! -x "$VENV/bin/streamlit" ]; then
   exit 1
 fi
 export PYTHONPATH="$HERE/minicrew/src:${PYTHONPATH:-}"
-exec "$VENV/bin/streamlit" run "$HERE/minicrew/app/literature.py" "$@"
+# headless: don't try to open a browser on a (remote) server, and skip the
+# first-run email prompt. Override port etc. via "$@".
+exec "$VENV/bin/streamlit" run "$HERE/minicrew/app/Home.py" \
+  --server.headless true --browser.gatherUsageStats false "$@"
