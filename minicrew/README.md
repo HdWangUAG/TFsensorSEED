@@ -28,6 +28,22 @@ scripts/minicrew index                          # index the .md notes
 scripts/minicrew search "aromatic A-ring recognition of estradiol"
 ```
 
+## The workbench (web / desktop)
+
+`scripts/minicrew-app` (browser) or `scripts/minicrew-desktop` (native window)
+open a multipage co-scientist workbench:
+
+- **🔬 Discussion room** — pick a crew, watch the agents review live (streamed),
+  then the moderator's synthesis.
+- **💬 Chat** — talk 1:1 with one agent, optionally grounded in pitfalls + top-k
+  literature (a brainstorm vs the panel).
+- **🤖 Agents** — create / edit / delete knowledge & tool agents (role, model,
+  system prompt) — no YAML editing.
+- **📚 Literature** — ingest papers (PDF / SI / figures), distil, chat-refine,
+  cross-check, save & search.
+- **🧭 Pipeline** — workflow diagram + live project status + knowledge layers.
+- **🗂️ History** — past discussions, each with the exact prompt every agent saw.
+
 Embedder is pluggable (`core/embed.py`, set via `MINICREW_EMBED_BACKEND` in `.env`):
 
 | backend | model | dim | notes |
