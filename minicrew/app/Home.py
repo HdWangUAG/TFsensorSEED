@@ -30,10 +30,12 @@ def home():
     with a:
         st.subheader("Sections")
         st.markdown(
-            "- **📚 Literature** — ingest papers (PDF/SI/figures), distil, "
-            "chat-refine, search\n"
+            "- **🔬 Discussion room** — run a crew, watch agents discover live\n"
+            "- **💬 Chat** — talk 1:1 with an agent, grounded in your knowledge\n"
             "- **🤖 Agents** — create / edit / delete knowledge & tool agents\n"
-            "- **💬 Chat** — talk 1:1 with an agent, grounded in your knowledge")
+            "- **📚 Literature** — ingest papers (PDF/SI/figures), distil, search\n"
+            "- **🧭 Pipeline** — workflow + project status\n"
+            "- **🗂️ History** — browse past discussions (with each agent's prompt)")
     with b:
         st.subheader("Your agents")
         for ag in personas + tools:
@@ -45,8 +47,11 @@ def home():
 
 nav = [
     st.Page(home, title="Home", icon="🏠", default=True),
-    st.Page("pages/literature.py", title="Literature", icon="📚"),
-    st.Page("pages/agents.py", title="Agents", icon="🤖"),
+    st.Page("pages/discussion.py", title="Discussion room", icon="🔬"),
     st.Page("pages/chat.py", title="Chat", icon="💬"),
+    st.Page("pages/agents.py", title="Agents", icon="🤖"),
+    st.Page("pages/literature.py", title="Literature", icon="📚"),
+    st.Page("pages/pipeline.py", title="Pipeline", icon="🧭"),
+    st.Page("pages/history.py", title="History", icon="🗂️"),
 ]
 st.navigation(nav).run()

@@ -193,7 +193,7 @@ def _indent(text):
 # the run loop
 # ----------------------------------------------------------------------------
 def run_crew(name, extra_files=None, rounds=None, topology=None,
-             dry_run=False, mock=False, out_path=None):
+             dry_run=False, mock=False, out_path=None, on_event=None):
     crew = load_crew(name)
     topology = topology or crew["topology"]
     rounds = rounds or crew.get("rounds", 1)
@@ -215,13 +215,19 @@ def run_crew(name, extra_files=None, rounds=None, topology=None,
     if dry_run:
         return _dry_run(crew, ctx, evidence, topology, rounds)
 
+    _emit(on_event, type="start", crew=crew["name"], topology=topology,
+          task=crew.get("task", ""), roles=[r["name"] for r in crew["roles"]],
+          rounds=rounds)
+
     transcript = []
     if topology == "parallel_blind":
         for i, role in enumerate(crew["roles"]):
             prompt = _reviewer_prompt(crew, ctx, evidence, role)
             ok, alias, model, text = _invoke(role, prompt, mock)
             _print_turn(i, role, alias, model, text, ok)
-            transcript.append(_record(role, alias, model, "reviewer", prompt, text, ok))
+            rec = _record(role, alias, model, "reviewer", prompt, text, ok)
+            transcript.append(rec)
+            _emit(on_event, type="turn", round=1, **rec)
     else:  # round_robin
         for rnd in range(1, rounds + 1):
             if rounds > 1:
@@ -230,7 +236,9 @@ def run_crew(name, extra_files=None, rounds=None, topology=None,
                 prompt = _round_prompt(crew, ctx, evidence, transcript, role)
                 ok, alias, model, text = _invoke(role, prompt, mock)
                 _print_turn(i, role, alias, model, text, ok)
-                transcript.append(_record(role, alias, model, "reviewer", prompt, text, ok))
+                rec = _record(role, alias, model, "reviewer", prompt, text, ok)
+                transcript.append(rec)
+                _emit(on_event, type="turn", round=rnd, **rec)
 
     synth = crew.get("synthesizer")
     if synth:
@@ -241,12 +249,23 @@ def run_crew(name, extra_files=None, rounds=None, topology=None,
         sr.setdefault("max_tokens", 1500)
         ok, alias, model, text = _invoke(sr, prompt, mock)
         _print_turn(0, sr, alias, model, text, ok, marker="■")
-        transcript.append(_record(sr, alias, model, "moderator", prompt, text, ok))
+        rec = _record(sr, alias, model, "moderator", prompt, text, ok)
+        transcript.append(rec)
+        _emit(on_event, type="turn", round=0, **rec)
 
     from . import logger
     rec = logger.save_run(crew, topology, transcript, out_path)
     print(_c(f"\n[saved] conversations/{rec['run_id']}.md  +  runs/{rec['run_id']}.json", _DIM))
+    _emit(on_event, type="done", run_id=rec["run_id"])
     return transcript
+
+
+def _emit(on_event, **event):
+    if on_event:
+        try:
+            on_event(event)
+        except Exception:        # a UI callback must never break the run
+            pass
 
 
 def _record(role, alias, model, kind, prompt, text, ok):
