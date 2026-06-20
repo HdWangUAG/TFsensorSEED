@@ -35,6 +35,23 @@ st.caption("Reviewers: "
               f" ({c['synthesizer'].get('model', '?')})" if c.get("synthesizer") else "")
            + f"  ·  knowledge: {', '.join(c.get('knowledge') or []) or 'none'}")
 
+
+def _render_turn(ev):
+    moderator = ev["kind"] == "moderator"
+    icon = "🟦" if moderator else "🔹"
+    with st.chat_message("assistant", avatar="🧑‍⚖️" if moderator else "🧑‍🔬"):
+        rnd = f" · round {ev['round']}" if ev.get("round") else ""
+        st.markdown(f"{icon} **{ev['role']}**  ·  `{ev['alias']}:{ev['model']}`{rnd}")
+        st.markdown(ev.get("content", ""))
+
+
+# persist the most recent discussion across reruns (also saved to History)
+prev = st.session_state.get("last_discussion")
+if prev and st.session_state.get("last_crew") == name:
+    st.caption("Most recent run (also in 🗂️ History):")
+    for ev in prev:
+        _render_turn(ev)
+
 if st.button("▶ Run discussion", type="primary"):
     extra = []
     if upload is not None:
@@ -50,24 +67,28 @@ if st.button("▶ Run discussion", type="primary"):
                 fh.write(txt)
         extra = [path]
 
+    turns, holder = [], st.container()
+
     def on_event(ev):
         if ev["type"] == "turn":
-            moderator = ev["kind"] == "moderator"
-            icon = "🟦" if moderator else "🔹"
-            avatar = "🧑‍⚖️" if moderator else "🧑‍🔬"
-            with st.chat_message("assistant", avatar=avatar):
-                rnd = f" · round {ev['round']}" if ev.get("round") else ""
-                st.markdown(f"{icon} **{ev['role']}**  ·  "
-                            f"`{ev['alias']}:{ev['model']}`{rnd}")
-                st.markdown(ev["content"])
+            turns.append(ev)
+            with holder:
+                _render_turn(ev)
         elif ev["type"] == "done":
-            st.success(f"Done — saved as run `{ev['run_id']}` (see History).")
+            with holder:
+                st.success(f"Done — saved as run `{ev['run_id']}`.")
 
+    ok = False
     with st.spinner("agents are discussing… (a real run takes 1–3 min)"):
         try:
             crew.run_crew(
                 name, extra_files=extra,
                 topology=None if topo == "(crew default)" else topo,
                 rounds=int(rounds), mock=mock, on_event=on_event)
+            ok = True
         except Exception as exc:
             st.error(f"Run failed: {exc}")
+    if ok:                                   # rerun OUTSIDE try (it raises to control flow)
+        st.session_state["last_discussion"] = turns
+        st.session_state["last_crew"] = name
+        st.rerun()
