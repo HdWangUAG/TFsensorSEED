@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# MiniCrewAI launcher (no-install). Runs the package with the repo on PYTHONPATH,
+# so `scripts/minicrew run ...` works without `pip install`. Uses the active
+# python3 (needs requests + pyyaml; the TFsensor conda env has both).
+#
+# For a global `minicrew` command instead, `pip install -e .` into your env.
+set -euo pipefail
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+export PYTHONPATH="$HERE/minicrew/src:${PYTHONPATH:-}"
+# Prefer the dedicated venv (has requests, pyyaml, pymongo, qdrant-client);
+# fall back to the system python3 (CLI still works minus the DB index/search).
+PY="$HERE/minicrew/.venv/bin/python"
+[ -x "$PY" ] || PY=python3
+exec "$PY" -m minicrew "$@"
