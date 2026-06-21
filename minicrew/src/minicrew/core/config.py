@@ -152,6 +152,7 @@ KNOWLEDGE_SOURCES = {
     "computational": [os.path.join(KNOWLEDGE_DIR, "computational")],
     "literature":    [os.path.join(KNOWLEDGE_DIR, "literature")],
     "experimental":  [os.path.join(KNOWLEDGE_DIR, "experimental")],
+    "decisions":     [os.path.join(KNOWLEDGE_DIR, "decisions")],
     "pitfalls":      [os.path.join(KNOWLEDGE_DIR, "pitfalls"),
                       os.path.join(REPO_ROOT, "docs", "agent_memory")],
 }
@@ -160,8 +161,10 @@ KNOWLEDGE_TRUST = {
     "experimental":  "HIGH — wet-lab ground truth; overrides model priors and computed numbers",
     "literature":    "HIGH — but verify the applicability domain before transferring a claim",
     "computational": "MEDIUM — a lead, not a verdict; demand uncertainty / replicates",
+    "decisions":     "MEDIUM — prior decisions/findings from earlier discussions; revisit if new data conflicts",
     "pitfalls":      "HARD CONSTRAINT — known mistakes; do not repeat or re-propose these",
 }
+DECISIONS_DIR = os.path.join(KNOWLEDGE_DIR, "decisions")
 
 # --- literature index (Phase 2): Mongo full text + Qdrant vectors ------------
 # These INDEX the .md notes (source-of-truth) for semantic retrieval; see

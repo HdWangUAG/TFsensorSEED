@@ -55,7 +55,7 @@ rounds = c4.number_input("Rounds (round_robin only)", 1, 5,
 
 knowledge = st.multiselect(
     "Knowledge layers to ground on",
-    ["pitfalls", "computational", "experimental", "literature"],
+    list(config.KNOWLEDGE_TRUST),     # incl. decisions (the closed loop)
     default=ed.get("knowledge", []))
 
 c5, c6 = st.columns(2)

@@ -7,11 +7,14 @@
 from __future__ import annotations
 
 import argparse
+import glob
+import json
+import os
 import shutil
 import subprocess
 import sys
 
-from .core import config, crew, distill, embed, litdb, vision
+from .core import config, crew, distill, embed, litdb, scribe, vision
 
 
 def _cmd_run(args):
@@ -81,6 +84,26 @@ def _cmd_figures(args):
         print(f"[saved → {args.out}]  — CONFIRM any plot-read numbers")
     else:
         print(out)
+
+
+def _cmd_sediment(args):
+    runs = sorted(glob.glob(os.path.join(config.RUNS_DIR, "*.json")), reverse=True)
+    if not runs:
+        print("no discussion runs to sediment", file=sys.stderr)
+        return
+    if args.run_id:
+        match = [r for r in runs if args.run_id in os.path.basename(r)]
+        if not match:
+            print(f"run {args.run_id!r} not found", file=sys.stderr)
+            return
+        path = match[0]
+    else:
+        path = runs[0]
+    record = json.load(open(path, encoding="utf-8"))
+    out, _ = scribe.sediment_run(record, model=args.model)
+    print(f"sedimented run {record.get('run_id')} → "
+          f"{os.path.relpath(out, config.REPO_ROOT)}")
+    print("crews that list `decisions` will build on it next discussion.")
 
 
 def _cmd_index(_args):
@@ -198,6 +221,13 @@ def build_parser():
     g.add_argument("--model", "-m", default="openai", help="vision model alias")
     g.add_argument("--out", "-o", default=None, help="write extracted data here")
     g.set_defaults(func=_cmd_figures)
+
+    sed = sub.add_parser("sediment", help="extract a discussion's decisions into "
+                         "knowledge/decisions/ (closes the loop)")
+    sed.add_argument("run_id", nargs="?", default=None,
+                     help="run id substring (default: latest run)")
+    sed.add_argument("--model", "-m", default="claude_cli", help="scribe model")
+    sed.set_defaults(func=_cmd_sediment)
 
     sub.add_parser("index", help="(re)index literature notes into Mongo + Qdrant"
                    ).set_defaults(func=_cmd_index)

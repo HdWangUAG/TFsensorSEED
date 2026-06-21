@@ -5,7 +5,7 @@ import os
 
 import streamlit as st
 
-from minicrew.core import config
+from minicrew.core import config, scribe
 
 st.title("🗂️ Discussion history")
 
@@ -29,6 +29,18 @@ d = labels[sel]
 st.markdown(f"**{d.get('crew')}** · {d.get('topology')} · {d.get('timestamp')}")
 if d.get("task"):
     st.caption(d["task"])
+
+if st.button("📌 Sediment to knowledge",
+             help="Extract consensus / decisions / open questions into "
+                  "knowledge/decisions/ so future discussions build on them."):
+    with st.spinner("scribe is extracting durable knowledge…"):
+        try:
+            path, note = scribe.sediment_run(d)
+            st.success(f"Saved → {os.path.relpath(path, config.REPO_ROOT)}")
+            with st.expander("📝 what was sedimented", expanded=True):
+                st.markdown(note)
+        except Exception as exc:
+            st.error(f"Failed: {exc}")
 st.divider()
 
 for o in d.get("outputs", []):
