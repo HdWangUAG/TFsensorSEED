@@ -1,7 +1,7 @@
 ---
 name: Cheminformatics
 type: persona
-model: gemini
+model: claude_cli
 description: Ligand recognition, selectivity, decoys & ordered water (RDKit/ProLIF
   reasoning).
 ---

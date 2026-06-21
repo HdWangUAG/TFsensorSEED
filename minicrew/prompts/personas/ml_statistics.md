@@ -1,7 +1,7 @@
 ---
 name: ML / Statistics
 type: persona
-model: gemini
+model: claude_cli
 description: Data leakage, calibration, gate thresholds, validation design.
 ---
 

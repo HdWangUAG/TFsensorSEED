@@ -49,7 +49,7 @@ roles:
     word_limit: 250
 
   - name: Cheminformatics             # RDKit / ProLIF — ligand recognition & decoys
-    model: gemini                # gemini-2.5-flash
+    model: openai                # ChatGPT — gpt-5.5 (was gemini; free-tier quota exhausted)
     persona_file: personas/cheminformatics.md
     word_limit: 250
 
