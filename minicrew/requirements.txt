@@ -1,0 +1,19 @@
+# MiniCrew app/venv dependencies (the dedicated minicrew/.venv).
+# Rebuild:
+#   python3 -m venv minicrew/.venv
+#   # install torch FIRST from the DEFAULT PyPI index — the CUDA wheel works;
+#   # the CPU-index 2.6/2.7 wheels are broken on the aspartate node:
+#   minicrew/.venv/bin/pip install torch==2.7.1
+#   minicrew/.venv/bin/pip install -r minicrew/requirements.txt
+#
+# (minicrew core itself only needs requests + pyyaml; the rest power the app,
+#  vector search, SPECTER2 embedder, desktop window, and RDKit tools.)
+requests
+pyyaml
+streamlit
+pymongo
+qdrant-client
+sentence-transformers
+adapters
+rdkit
+pywebview
