@@ -8,6 +8,16 @@ from minicrew.core import agents, config, crew, litstore
 
 st.set_page_config(page_title="MiniCrew", page_icon="🔬", layout="wide")
 
+# Bigger, more readable type across every page (runs from the nav entry).
+st.markdown("""
+<style>
+  html { font-size: 18px; }
+  .stMarkdown p, .stMarkdown li { font-size: 1.05rem; line-height: 1.65; }
+  [data-testid="stChatMessageContent"] p { font-size: 1.05rem; line-height: 1.65; }
+  h1 { font-size: 2.1rem; } h2 { font-size: 1.6rem; } h3 { font-size: 1.3rem; }
+</style>
+""", unsafe_allow_html=True)
+
 
 def home():
     st.title("🔬 MiniCrew — AI co-scientist workbench")
@@ -33,6 +43,7 @@ def home():
             "- **🔬 Discussion room** — run a crew, watch agents discover live\n"
             "- **💬 Chat** — talk 1:1 with an agent, grounded in your knowledge\n"
             "- **🤖 Agents** — create / edit / delete knowledge & tool agents\n"
+            "- **👥 Crews** — assemble agents into a team for a new topic\n"
             "- **📚 Literature** — ingest papers (PDF/SI/figures), distil, search\n"
             "- **🧭 Pipeline** — workflow + project status\n"
             "- **🗂️ History** — browse past discussions (with each agent's prompt)")
@@ -50,6 +61,7 @@ nav = [
     st.Page("pages/discussion.py", title="Discussion room", icon="🔬"),
     st.Page("pages/chat.py", title="Chat", icon="💬"),
     st.Page("pages/agents.py", title="Agents", icon="🤖"),
+    st.Page("pages/crews.py", title="Crews", icon="👥"),
     st.Page("pages/literature.py", title="Literature", icon="📚"),
     st.Page("pages/pipeline.py", title="Pipeline", icon="🧭"),
     st.Page("pages/history.py", title="History", icon="🗂️"),

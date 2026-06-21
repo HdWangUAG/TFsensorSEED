@@ -39,6 +39,9 @@ open a multipage co-scientist workbench:
   literature (a brainstorm vs the panel).
 - **🤖 Agents** — create / edit / delete knowledge & tool agents (role, model,
   system prompt) — no YAML editing.
+- **👥 Crews** — assemble agents into a team for a new topic (task, reviewers +
+  models, moderator, topology, knowledge); saved crews appear in the room. New
+  topic = make agents → build a crew → run.
 - **📚 Literature** — ingest papers (PDF / SI / figures), distil, chat-refine,
   cross-check, save & search.
 - **🧭 Pipeline** — workflow diagram + live project status + knowledge layers.
