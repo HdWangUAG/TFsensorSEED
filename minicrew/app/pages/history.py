@@ -59,7 +59,7 @@ fact_check = c2.checkbox("fact-check first", value=True)
 if c2.button("📌 Sediment to knowledge"):
     with st.spinner("scribe extracting durable knowledge…"):
         try:
-            path, note = scribe.sediment_run(
+            path, note = scribe.sediment_record(
                 d, verify_model=vmodel if fact_check else None)
             st.success(f"Saved → {os.path.relpath(path, config.REPO_ROOT)}")
             with st.expander("📝 what was sedimented", expanded=True):

@@ -155,6 +155,7 @@ KNOWLEDGE_SOURCES = {
     "decisions":     [os.path.join(KNOWLEDGE_DIR, "decisions")],
     "pitfalls":      [os.path.join(KNOWLEDGE_DIR, "pitfalls"),
                       os.path.join(REPO_ROOT, "docs", "agent_memory")],
+    "engineering":   [os.path.join(KNOWLEDGE_DIR, "engineering")],
 }
 # How much each source should sway an agent. Stated verbatim in the prompt.
 KNOWLEDGE_TRUST = {
@@ -163,8 +164,10 @@ KNOWLEDGE_TRUST = {
     "computational": "MEDIUM — a lead, not a verdict; demand uncertainty / replicates",
     "decisions":     "MEDIUM — prior decisions/findings from earlier discussions; revisit if new data conflicts",
     "pitfalls":      "HARD CONSTRAINT — known mistakes; do not repeat or re-propose these",
+    "engineering":   "MEDIUM — execution-level know-how / gotchas sedimented from 1:1 chats; tactical, verify before relying",
 }
 DECISIONS_DIR = os.path.join(KNOWLEDGE_DIR, "decisions")
+ENGINEERING_DIR = os.path.join(KNOWLEDGE_DIR, "engineering")
 
 # --- literature index (Phase 2): Mongo full text + Qdrant vectors ------------
 # These INDEX the .md notes (source-of-truth) for semantic retrieval; see

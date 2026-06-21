@@ -193,8 +193,10 @@ def _indent(text):
 # the run loop
 # ----------------------------------------------------------------------------
 def run_crew(name, extra_files=None, rounds=None, topology=None,
-             dry_run=False, mock=False, out_path=None, on_event=None):
+             dry_run=False, mock=False, out_path=None, on_event=None, task=None):
     crew = load_crew(name)
+    if task:                       # override the crew's default task (e.g. escalation)
+        crew["task"] = task
     topology = topology or crew["topology"]
     rounds = rounds or crew.get("rounds", 1)
     ctx = context.build(crew.get("context_files"), extra_files)

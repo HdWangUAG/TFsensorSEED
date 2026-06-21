@@ -118,11 +118,12 @@ def _cmd_sediment(args):
         path = runs[0]
     record = json.load(open(path, encoding="utf-8"))
     vmodel = (args.verify if isinstance(args.verify, str) else "openai") if args.verify else None
-    out, _ = scribe.sediment_run(record, model=args.model, verify_model=vmodel)
-    print(f"sedimented run {record.get('run_id')} → "
+    out, _ = scribe.sediment_record(record, model=args.model, verify_model=vmodel)
+    layer = "engineering" if record.get("kind") == "chat" else "decisions"
+    print(f"sedimented {record.get('kind', 'run')} {record.get('run_id')} → "
           f"{os.path.relpath(out, config.REPO_ROOT)}"
           + (f"  (fact-checked by {vmodel})" if vmodel else ""))
-    print("crews that list `decisions` will build on it next discussion.")
+    print(f"crews that list `{layer}` will build on it next discussion.")
 
 
 def _cmd_index(_args):

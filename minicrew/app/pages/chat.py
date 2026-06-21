@@ -1,7 +1,9 @@
 """Chat page — talk 1:1 with a single agent, grounded in project knowledge."""
+import os
+
 import streamlit as st
 
-from minicrew.core import agents, chat, config, toolcall
+from minicrew.core import agents, chat, config, crew, toolcall
 
 st.title("💬 Chat with an agent")
 
@@ -46,9 +48,43 @@ ground = st.sidebar.checkbox("Ground in project knowledge", value=True,
 use_tools = st.sidebar.checkbox("🛠️ Tools (RDKit)", value=False,
                                 help="agent computes real descriptors/similarity; "
                                      "uses an OpenAI model for tool-calling")
+key = f"chat_{sel}"
+if st.sidebar.button("💾 Save chat"):
+    _hist = st.session_state.get(key, [])
+    if _hist:
+        md_path, json_path = chat.save_session(agent, _hist)
+        st.sidebar.success(f"saved → {os.path.relpath(md_path, config.REPO_ROOT)}")
+        st.sidebar.caption("sediment-ready: " +
+                           os.path.relpath(json_path, config.REPO_ROOT))
+    else:
+        st.sidebar.info("nothing to save yet")
 if st.sidebar.button("🧹 Clear conversation"):
-    st.session_state.pop(f"chat_{sel}", None)
+    st.session_state.pop(key, None)
     st.rerun()
+
+# --- escalate this chat to a multi-expert discussion ----------------------
+st.sidebar.divider()
+st.sidebar.caption("⤴ Hit a technical-route fork? Convene a panel on it.")
+_crews = crew.list_crews()
+if _crews:
+    esc_crew = st.sidebar.selectbox("Escalate to crew", _crews)
+    if st.sidebar.button("⤴ Escalate to Discussion"):
+        _hist = st.session_state.get(key, [])
+        if len(_hist) < 2:
+            st.sidebar.info("chat a bit first, then escalate")
+        else:
+            with st.spinner("distilling the fork + convening the panel… "
+                            "(real multi-model calls, ~1–2 min)"):
+                brief, question, transcript = chat.escalate_to_discussion(
+                    agent, _hist, esc_crew)
+            st.success(f"Panel convened on: {question}")
+            with st.expander("⤴ escalation brief + panel verdict", expanded=True):
+                st.markdown("### Brief\n" + brief)
+                st.markdown("### Panel")
+                for t in transcript:
+                    st.markdown(f"**{t['role']}** ({t['alias']})\n\n{t['content']}")
+            st.caption("Saved to conversations/ + runs/. Sediment it to "
+                       "`decisions` on the **History** page.")
 
 if agent.get("description"):
     st.caption(agent["description"])
