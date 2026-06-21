@@ -14,7 +14,7 @@ import shutil
 import subprocess
 import sys
 
-from .core import config, crew, distill, embed, litdb, scribe, vision
+from .core import config, crew, distill, embed, litdb, scribe, toolcall, vision
 
 
 def _cmd_run(args):
@@ -84,6 +84,23 @@ def _cmd_figures(args):
         print(f"[saved → {args.out}]  — CONFIRM any plot-read numbers")
     else:
         print(out)
+
+
+def _cmd_tool(args):
+    system = ("You are a cheminformatics assistant for a steroid-biosensor "
+              "project. Use the tools to get REAL numbers — never guess "
+              "descriptor values. Then answer concisely.")
+    try:
+        ans, trace = toolcall.run(system, args.question, model=args.model)
+    except Exception as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return
+    if trace:
+        print("— tool calls —")
+        for t in trace:
+            print(f"  {t['tool']}({t['args']}) → {t['result']}")
+        print()
+    print(ans)
 
 
 def _cmd_sediment(args):
@@ -223,6 +240,12 @@ def build_parser():
     g.add_argument("--model", "-m", default="openai", help="vision model alias")
     g.add_argument("--out", "-o", default=None, help="write extracted data here")
     g.set_defaults(func=_cmd_figures)
+
+    t = sub.add_parser("tool", help="ask a question; the model calls real tools "
+                       "(RDKit) to compute the answer")
+    t.add_argument("question")
+    t.add_argument("--model", "-m", default="openai", help="tool-capable model")
+    t.set_defaults(func=_cmd_tool)
 
     sed = sub.add_parser("sediment", help="extract a discussion's decisions into "
                          "knowledge/decisions/ (closes the loop)")
