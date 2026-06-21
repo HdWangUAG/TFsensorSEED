@@ -30,8 +30,16 @@ scripts/minicrew search "aromatic A-ring recognition of estradiol"
 
 ## The workbench (web / desktop)
 
-`scripts/minicrew-app` (browser) or `scripts/minicrew-desktop` (native window)
-open a multipage co-scientist workbench:
+**One command** brings up the whole backend (Mongo + Qdrant) and the web app:
+
+```bash
+scripts/minicrew-start            # DBs + web app → http://localhost:8501
+scripts/minicrew-start --index    # also (re)index literature first
+scripts/minicrew-stop             # stop the databases (data persists)
+```
+
+Or launch just the UI: `scripts/minicrew-app` (browser) / `scripts/minicrew-desktop`
+(native window). The workbench is a multipage co-scientist app:
 
 - **🔬 Discussion room** — pick a crew, watch the agents review live (streamed),
   then the moderator's synthesis.

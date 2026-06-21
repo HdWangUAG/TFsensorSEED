@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# One-command MiniCrew backend: start the databases (Mongo + Qdrant), then the
+# web app. Databases are optional — distill / chat / discuss work without them;
+# only literature index/search needs them.
+#
+#   scripts/minicrew-start            # start DBs + web app
+#   scripts/minicrew-start --index    # also (re)index literature first
+#   scripts/minicrew-start --server.port 8600   # extra args pass to streamlit
+#
+# Ctrl-C stops the app; the databases keep running. Stop them with:
+#   scripts/minicrew-stop
+set -euo pipefail
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$HERE"
+
+DO_INDEX=0
+if [ "${1:-}" = "--index" ]; then DO_INDEX=1; shift; fi
+
+echo "▶ MiniCrew — starting backend"
+
+# 1) databases (for literature index/search) -------------------------------
+if command -v docker >/dev/null 2>&1; then
+  echo "  · starting Mongo + Qdrant (docker compose)…"
+  if docker compose -f minicrew/docker-compose.yml up -d >/dev/null 2>&1; then
+    for _ in $(seq 1 30); do
+      curl -s http://localhost:6333/readyz >/dev/null 2>&1 && break
+      sleep 1
+    done
+    echo "    ✓ databases up (Mongo :27017, Qdrant :6333)"
+  else
+    echo "    ⚠ docker compose failed — search unavailable (distill/chat/discuss still work)"
+  fi
+else
+  echo "  · docker not found — skipping databases (search unavailable)"
+fi
+
+# 2) optional literature (re)index -----------------------------------------
+if [ "$DO_INDEX" = "1" ]; then
+  echo "  · indexing literature…"
+  scripts/minicrew index || echo "    ⚠ index skipped"
+fi
+
+# 3) the web app (foreground; Ctrl-C to stop) ------------------------------
+echo "  · launching web app → http://localhost:8501"
+echo "    (Ctrl-C stops the app; databases stay up — run scripts/minicrew-stop to stop them)"
+exec scripts/minicrew-app "$@"

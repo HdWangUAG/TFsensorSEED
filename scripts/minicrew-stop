@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Stop the MiniCrew databases (Mongo + Qdrant). Data persists in minicrew/.data.
+# (The web app is stopped with Ctrl-C in its own terminal.)
+set -euo pipefail
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+if command -v docker >/dev/null 2>&1; then
+  docker compose -f "$HERE/minicrew/docker-compose.yml" down
+  echo "✓ databases stopped (data kept in minicrew/.data)"
+else
+  echo "docker not found — nothing to stop"
+fi
