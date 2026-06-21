@@ -8,6 +8,7 @@ use). Distinct from a crew: this is a brainstorm with one expert, not a panel.
 from __future__ import annotations
 
 import datetime
+import glob
 import json
 import os
 
@@ -34,6 +35,36 @@ def reply(agent, history, message, ground=False, max_tokens=1500):
 
 def _slug(name):
     return name.lower().replace("/", "-").replace(" ", "_")
+
+
+def list_saved_chats(limit=50):
+    """Newest-first saved chats: [(label, json_path, agent_name)].
+
+    Sorted by file mtime (not filename — filenames start with the agent slug, so
+    a name sort would not be chronological).
+    """
+    out = []
+    paths = sorted(glob.glob(os.path.join(config.RUNS_DIR, "chat_*.json")),
+                   key=os.path.getmtime, reverse=True)
+    for p in paths[:limit]:
+        try:
+            r = json.load(open(p, encoding="utf-8"))
+        except Exception:
+            continue
+        if r.get("kind") != "chat":
+            continue
+        topic = (r.get("task", "") or "")[:40]
+        label = f"{r.get('agent', '?')} · {r.get('timestamp', '?')} · {topic}"
+        out.append((label, p, r.get("agent", "")))
+    return out
+
+
+def load_history(json_path):
+    """Reconstruct [{role, content}] history (+ agent name) from a saved chat."""
+    r = json.load(open(json_path, encoding="utf-8"))
+    hist = [{"role": "user" if o.get("agent") == "You" else "assistant",
+             "content": o.get("reply", "")} for o in r.get("outputs", [])]
+    return hist, r.get("agent", "")
 
 
 def save_session(agent, history, task=None):

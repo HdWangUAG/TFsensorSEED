@@ -23,6 +23,7 @@ context_files:
 # Grounding evidence — shown as a separate, "more reliable than priors" block.
 evidence_files:
   - DEV_STATUS.md
+  - LAB_MANUAL.md          # recognition code + validated wet-lab rules (R123E→cortisol, etc.)
 
 # Typed project knowledge (knowledge/ + auto docs/agent_memory), each block
 # injected with its source + trust tier. Categories: computational | literature

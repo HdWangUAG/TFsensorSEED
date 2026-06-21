@@ -46,6 +46,8 @@ def _record(kind, path):
         "name": meta.get("name") or base[:-3].replace("_", " ").title(),
         "model": meta.get("model"),
         "description": meta.get("description", ""),
+        "capabilities": meta.get("capabilities", ""),
+        "limitations": meta.get("limitations", ""),
         "body": body.strip(),
     }
 
