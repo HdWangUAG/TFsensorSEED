@@ -53,7 +53,10 @@ Or launch just the UI: `scripts/minicrew-app` (browser) / `scripts/minicrew-desk
 - **📚 Literature** — ingest papers (PDF / SI / figures), distil, chat-refine,
   cross-check, save & search.
 - **🧭 Pipeline** — workflow diagram + live project status + knowledge layers.
-- **🗂️ History** — past discussions, each with the exact prompt every agent saw.
+- **🗂️ History** — past discussions, with the exact prompt every agent saw,
+  a contribution chart, **adversarial verification** of claims vs project
+  evidence (guards the closed loop before sedimenting), and a **cited report**
+  (synthesis + reviews + literature DOIs) you can download.
 
 Embedder is pluggable (`core/embed.py`, set via `MINICREW_EMBED_BACKEND` in `.env`):
 

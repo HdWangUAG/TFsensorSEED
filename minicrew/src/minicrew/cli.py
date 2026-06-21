@@ -100,9 +100,11 @@ def _cmd_sediment(args):
     else:
         path = runs[0]
     record = json.load(open(path, encoding="utf-8"))
-    out, _ = scribe.sediment_run(record, model=args.model)
+    vmodel = (args.verify if isinstance(args.verify, str) else "openai") if args.verify else None
+    out, _ = scribe.sediment_run(record, model=args.model, verify_model=vmodel)
     print(f"sedimented run {record.get('run_id')} → "
-          f"{os.path.relpath(out, config.REPO_ROOT)}")
+          f"{os.path.relpath(out, config.REPO_ROOT)}"
+          + (f"  (fact-checked by {vmodel})" if vmodel else ""))
     print("crews that list `decisions` will build on it next discussion.")
 
 
@@ -227,6 +229,9 @@ def build_parser():
     sed.add_argument("run_id", nargs="?", default=None,
                      help="run id substring (default: latest run)")
     sed.add_argument("--model", "-m", default="claude_cli", help="scribe model")
+    sed.add_argument("--verify", nargs="?", const="openai", default=None,
+                     help="fact-check claims vs evidence before sedimenting "
+                          "(optional model alias; default openai)")
     sed.set_defaults(func=_cmd_sediment)
 
     sub.add_parser("index", help="(re)index literature notes into Mongo + Qdrant"

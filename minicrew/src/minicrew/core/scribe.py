@@ -42,9 +42,12 @@ def _transcript_text(record):
         for o in record.get("outputs", []) if o.get("ok", True))
 
 
-def sediment_run(record, model="claude_cli"):
+def sediment_run(record, model="claude_cli", verify_model=None):
     """Extract a decisions note from a run record; write it to knowledge/
-    decisions/ and return (path, content)."""
+    decisions/ and return (path, content). If `verify_model` is set, a (different)
+    model fact-checks the consensus/decisions against project evidence first and
+    the verdicts are appended — so the loop only accrues vetted knowledge."""
+    from . import verify
     crew = record.get("crew", "discussion")
     run_id = record.get("run_id", "?")
     task = record.get("task", "")
@@ -53,11 +56,23 @@ def sediment_run(record, model="claude_cli"):
     spec = config.resolve_model(model)
     body = llm.call(spec, _SCRIBE_SYS, prompt, max_tokens=1500, temperature=0.2)
 
+    verified = None
+    verify_section = ""
+    if verify_model:
+        claims = verify.claims_from_note(body)
+        vtext, counts = verify.verify_claims(claims, model=verify_model)
+        verified = verify_model
+        verify_section = (f"\n## Verification (by {verify_model} — "
+                          f"{counts['SUPPORTED']}✓ / {counts['UNSUPPORTED']}⚠ / "
+                          f"{counts['CONTRADICTED']}✗ vs project evidence)\n{vtext}\n")
+
     ts = _dt.datetime.now().strftime("%Y%m%d_%H%M%S")
     os.makedirs(config.DECISIONS_DIR, exist_ok=True)
-    note = (f"---\ntitle: Decisions — {crew}\ntype: decisions\n"
-            f"source_run: {run_id}\ncrew: {crew}\ndate: {ts}\ntrust: MEDIUM\n---\n\n"
-            f"_Sedimented from discussion run `{run_id}`._\n\n{body.strip()}\n")
+    fm = (f"---\ntitle: Decisions — {crew}\ntype: decisions\n"
+          f"source_run: {run_id}\ncrew: {crew}\ndate: {ts}\ntrust: MEDIUM\n"
+          + (f"verified_by: {verified}\n" if verified else "") + "---\n\n")
+    note = (fm + f"_Sedimented from discussion run `{run_id}`._\n\n"
+            f"{body.strip()}\n{verify_section}")
     path = os.path.join(config.DECISIONS_DIR, f"{ts}_{crew}_decisions.md")
     with open(path, "w", encoding="utf-8") as fh:
         fh.write(note)
