@@ -53,6 +53,107 @@ def ligand_similarity(ligand_a, ligand_b):
             "tanimoto": round(DataStructs.TanimotoSimilarity(fa, fb), 3)}
 
 
+def interaction_fingerprint(pdb_path, ligand_resname="STR"):
+    """ProLIF protein–ligand interaction fingerprint from a complex PDB:
+    which protein residues contact the ligand and via what interaction type."""
+    import os
+    if not os.path.isabs(pdb_path):
+        from . import config
+        pdb_path = os.path.join(config.REPO_ROOT, pdb_path)
+    try:
+        import MDAnalysis as mda
+        import prolif as plf
+        u = mda.Universe(pdb_path)
+        lig_ag = u.select_atoms(f"resname {ligand_resname}")
+        prot_ag = u.select_atoms("protein")
+        if len(lig_ag) == 0:
+            return {"error": f"no ligand with resname {ligand_resname!r} in {pdb_path}"}
+        # NoImplicit=False: allow implicit H (these PDBs have no explicit H) — H-bond
+        # calls are then approximate, but hydrophobic / pi / contacts are recovered.
+        lig = plf.Molecule.from_mda(lig_ag, NoImplicit=False)
+        prot = plf.Molecule.from_mda(prot_ag, NoImplicit=False)
+        fp = plf.Fingerprint()
+        fp.run_from_iterable([lig], prot, progress=False)
+        df = fp.to_dataframe()
+    except Exception as exc:
+        return {"error": f"ProLIF failed: {exc}"}
+    by_res = {}
+    for col in df.columns:
+        prot_res, inter = col[1], col[-1]
+        by_res.setdefault(str(prot_res), set()).add(str(inter))
+    summary = {r: sorted(v) for r, v in sorted(by_res.items())}
+    return {"pdb": os.path.basename(pdb_path), "ligand_resname": ligand_resname,
+            "n_interacting_residues": len(summary), "interactions": summary}
+
+
+def train_model(csv_path, target_column, smiles_column=None):
+    """Train an XGBoost model on a CSV and report cross-validated performance +
+    top feature importances. If `smiles_column` is given, RDKit descriptors are
+    the features; otherwise the numeric columns are. Auto-detects classification
+    vs regression from the target."""
+    import os
+    import numpy as np
+    import pandas as pd
+    if not os.path.isabs(csv_path):
+        from . import config
+        csv_path = os.path.join(config.REPO_ROOT, csv_path)
+    try:
+        df = pd.read_csv(csv_path)
+    except Exception as exc:
+        return {"error": f"could not read {csv_path}: {exc}"}
+    if target_column not in df.columns:
+        return {"error": f"target {target_column!r} not in columns {list(df.columns)}"}
+
+    if smiles_column and smiles_column in df.columns:
+        rows = [ligand_descriptors(s) for s in df[smiles_column]]
+        feat = pd.DataFrame([{k: v for k, v in r.items()
+                              if isinstance(v, (int, float))} for r in rows])
+        feat_names = list(feat.columns)
+        X = feat.values
+    else:
+        num = df.select_dtypes("number").drop(columns=[target_column], errors="ignore")
+        feat_names, X = list(num.columns), num.values
+    y_raw = df[target_column]
+    n = len(df)
+    classification = (y_raw.dtype == object) or (y_raw.nunique() <= 10
+                                                 and y_raw.dtype != float)
+    try:
+        import xgboost as xgb
+        from sklearn.metrics import accuracy_score, r2_score
+        from sklearn.model_selection import cross_val_predict
+        if classification:
+            classes, y = np.unique(y_raw, return_inverse=True)
+            model = xgb.XGBClassifier(n_estimators=200, max_depth=3,
+                                      verbosity=0, use_label_encoder=False)
+            metric = "accuracy"
+        else:
+            y = y_raw.values.astype(float)
+            model = xgb.XGBRegressor(n_estimators=200, max_depth=3, verbosity=0)
+            metric = "R2"
+        cv = min(5, n)
+        score, note = None, ""
+        if n >= 6 and cv >= 2:
+            pred = cross_val_predict(model, X, y, cv=cv)
+            score = (accuracy_score(y, pred) if classification
+                     else r2_score(y, pred))
+        else:
+            note = f"only {n} rows — too few for CV; importances from a full fit"
+        model.fit(X, y)
+        imp = sorted(zip(feat_names, model.feature_importances_),
+                     key=lambda t: -t[1])[:8]
+        out = {"rows": n, "task": "classification" if classification else "regression",
+               "features": feat_names,
+               "top_importances": [{"feature": f, "importance": round(float(i), 3)}
+                                   for f, i in imp]}
+        if score is not None:
+            out[f"cv_{metric}"] = round(float(score), 3)
+        if note:
+            out["note"] = note
+        return out
+    except Exception as exc:
+        return {"error": f"training failed: {exc}"}
+
+
 REGISTRY = {
     "ligand_descriptors": {
         "fn": ligand_descriptors,
@@ -75,6 +176,36 @@ REGISTRY = {
                 "ligand_a": {"type": "string"},
                 "ligand_b": {"type": "string"}},
             "required": ["ligand_a", "ligand_b"]},
+    },
+    "interaction_fingerprint": {
+        "fn": interaction_fingerprint,
+        "description": "ProLIF protein–ligand interaction fingerprint from a "
+                       "complex PDB: which protein residues contact the ligand "
+                       "and how (hydrophobic, H-bond, pi-stacking, …).",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "pdb_path": {"type": "string",
+                             "description": "path to a protein–ligand complex PDB "
+                                            "(repo-relative ok)"},
+                "ligand_resname": {"type": "string",
+                                   "description": "ligand residue name (default STR)"}},
+            "required": ["pdb_path"]},
+    },
+    "train_model": {
+        "fn": train_model,
+        "description": "Train an XGBoost model on a CSV and report cross-validated "
+                       "performance + top feature importances. Give smiles_column "
+                       "to use RDKit descriptors as features.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "csv_path": {"type": "string", "description": "CSV path (repo-relative ok)"},
+                "target_column": {"type": "string"},
+                "smiles_column": {"type": "string",
+                                  "description": "optional; column of SMILES to "
+                                                 "featurise with RDKit"}},
+            "required": ["csv_path", "target_column"]},
     },
 }
 

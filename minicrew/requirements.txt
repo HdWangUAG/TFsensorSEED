@@ -16,4 +16,7 @@ qdrant-client
 sentence-transformers
 adapters
 rdkit
+prolif
+xgboost
+scikit-learn
 pywebview
