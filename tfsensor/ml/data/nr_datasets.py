@@ -48,20 +48,43 @@ KCAL_PER_PCHEMBL = -1.364   # dG = -1.364 * pchembl (kcal/mol, 298 K)
 BINDER_PCHEMBL = 5.0        # >= 5  <=>  Kd/Ki/IC50 <= 10 uM
 
 
+def _fetch_json(url, retries=4):
+    """GET + parse JSON with retry/backoff (ChEMBL 500s on deep pagination)."""
+    last = None
+    for i in range(retries):
+        try:
+            with urllib.request.urlopen(url, timeout=90) as fh:
+                return json.load(fh)
+        except Exception as exc:                       # noqa: BLE001
+            last = exc
+            time.sleep(1.5 * (i + 1))
+    raise last
+
+
 def fetch_activities(target_id, max_records=None, page_size=1000,
                      organism="Homo sapiens", pause=0.2):
-    """Yield ChEMBL activity records (with pchembl_value) for one target."""
+    """Yield ChEMBL activity records (with pchembl_value) for one target.
+
+    Resilient: on a persistent server error (e.g. HTTP 500 from deep pagination)
+    it stops THIS target gracefully, keeping everything collected so far, rather
+    than crashing the whole pull. `only=` trims the payload to the fields we use.
+    """
     params = {
         "target_chembl_id": target_id,
         "pchembl_value__isnull": "false",
+        "only": "canonical_smiles,pchembl_value,standard_type,"
+                "molecule_chembl_id,target_organism",
         "limit": page_size,
         "offset": 0,
     }
     url = API + "?" + urllib.parse.urlencode(params)
     n = 0
     while url:
-        with urllib.request.urlopen(url, timeout=60) as fh:
-            page = json.load(fh)
+        try:
+            page = _fetch_json(url)
+        except Exception as exc:                       # noqa: BLE001
+            print(f"  [warn] {target_id}: stopped at n={n} ({exc})", flush=True)
+            return
         for a in page.get("activities", []):
             if organism and a.get("target_organism") != organism:
                 continue
