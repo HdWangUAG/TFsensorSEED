@@ -25,10 +25,27 @@ def _gp():
                                     n_restarts_optimizer=2, random_state=0)
 
 
-def lopo(target, offtargets=None):
+def _build_X(variants, muts, mode):
+    """mode: 'physchem' | 'esm' | 'concat'. Returns (X, keep_idx) — keep_idx drops
+    variants missing an ESM embedding (esm/concat only)."""
+    Xp = physchem.featurize_many(muts)
+    keep = list(range(len(variants)))
+    if mode == "physchem":
+        return Xp, keep
+    from tfsensor.ml.features.esm_embed import load_cache
+    cache = load_cache()
+    keep = [i for i, v in enumerate(variants) if v in cache]
+    Xe = np.vstack([cache[variants[i]] for i in keep])
+    if mode == "esm":
+        return Xe, keep
+    return np.hstack([Xp[keep], Xe]), keep      # concat
+
+
+def lopo(target, offtargets=None, mode="physchem"):
     variants, muts, y = seed.objective_table(target, offtargets)
-    X = physchem.featurize_many(muts)
-    y = np.array(y)
+    X, keep = _build_X(variants, muts, mode)
+    variants = [variants[i] for i in keep]; muts = [muts[i] for i in keep]
+    y = np.array([y[i] for i in keep])
     pos = [m[0][1] if m else None for m in muts]            # held-out group key
     groups = sorted({p for p in pos if p is not None})
 
@@ -66,15 +83,16 @@ def lopo(target, offtargets=None):
 
 
 def _main():
-    print("=== P1 leave-one-position-out grouped-CV (physchem features) ===")
+    print("=== P1 leave-one-position-out grouped-CV — feature ablation ===")
     for tgt in ("testosterone", "cortisol"):
-        r = loho = lopo(tgt)
-        print(f"\n[{tgt}]  n={r['n']} positions={r['n_positions']}")
-        print(f"  Spearman: GP={r['rho_gp']}  additive={r['rho_additive']}  random={r['rho_random']}")
-        print(f"  calibration: 80%→{r['cov80']}  95%→{r['cov95']}")
-        print(f"  lead rediscovery (predicted percentile, 1.0=top): {r['lead_percentiles']}")
-    print("\nPASS bar: GP Spearman > additive & >> random; leads near percentile 1.0; "
-          "cov80≈0.8/cov95≈0.95. Else STOP — features/objective can't rank.")
+        print(f"\n## {tgt}")
+        for mode in ("physchem", "esm", "concat"):
+            r = lopo(tgt, mode=mode)
+            print(f"  [{mode:8s}] n={r['n']:2d}  GP_rho={r['rho_gp']:+.2f}  "
+                  f"add={r['rho_additive']:+.2f}  rnd={r['rho_random']:+.2f}  "
+                  f"cov80={r['cov80']}  leads={r['lead_percentiles']}")
+    print("\nPASS: a mode's GP_rho clearly >0 and > additive, leads near 1.0. "
+          "Else no learned surrogate is viable -> oracles + wet-lab diagnostic only.")
 
 
 if __name__ == "__main__":
