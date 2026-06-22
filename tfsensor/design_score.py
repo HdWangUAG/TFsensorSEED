@@ -57,7 +57,11 @@ def cmd_worker(args):
     smiles = panel[args.ligand]
     work = os.path.abspath(args.work_dir)
     os.makedirs(work, exist_ok=True)
-    holo = _top_boltz_pose(args.boltz_root, args.seed, args.ligand, "wt")
+    # orientation-controlled override: the caller may pass a specific (SAR-consistent)
+    # holo model instead of the default top-ranked model_0 (the retrodiction harness
+    # uses this to score only on A-ring-correct poses).
+    holo = getattr(args, "holo_pdb", None) or _top_boltz_pose(
+        args.boltz_root, args.seed, args.ligand, "wt")
     params, complex_pdb = _build_complex(holo, smiles, args.ligand, work)
 
     import pyrosetta
@@ -198,6 +202,8 @@ def main():
     w.add_argument("--designs", required=True); w.add_argument("--panel", default="data/steroid_panel.csv")
     w.add_argument("--boltz_root", default="results/stage1_wt_validation/boltz")
     w.add_argument("--work_dir", required=True); w.add_argument("--out_json", required=True)
+    w.add_argument("--holo_pdb", default=None,
+                   help="override the holo template pose (e.g. an orientation-selected model)")
     w.set_defaults(func=cmd_worker)
     p = sub.add_parser("panel")
     p.add_argument("--library", required=True); p.add_argument("--panel", default="data/steroid_panel.csv")
