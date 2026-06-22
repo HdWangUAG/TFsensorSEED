@@ -9,8 +9,8 @@ _Last updated: 2026-06-17 (Node-Aspartate results merged)_
 ## Established conclusions (trust these)
 - **WT is a 4-en-3-one sensor**: testosterone > cortisol > progesterone; **estradiol = non-responder**.
 - **Recognition code** (`results/stage1e_pdbmine/`): A-ring 3-keto ↔ R123/E106/D116 cluster; D-ring/C17 = the selectivity lever among test/prog/cort; estradiol phenol needs a Glu/Arg clamp.
-- **DL pose caveat**: no crystal exists; Boltz/Protenix poses are unreliable for orientation/amplitude (testosterone flips). Trust SAR + ΔΔG/FEP for specificity; treat allosteric opening as a **wet-lab** readout.
-- **Specificity ≠ resolvable by binding-ΔΔG at ~1 kcal/mol** on predicted poses (3-seed re-score noise; E106L FEP GIGO). Use it as a coarse ranker; the trusted specificity signal is the **empirical scan**.
+- **DL pose caveat**: no crystal exists; Boltz/Protenix poses are unreliable for orientation/amplitude (testosterone flips — quantified: only **1/15** WT-holo poses are A-ring-correct, #4). Use SAR as a *qualitative* hypothesis; treat allosteric opening + specificity as **wet-lab** readouts.
+- **Specificity ≠ resolvable by computation at the mutation level** — three independent methods fail: supervised ranker ≈ chance; P1 GP Spearman ≤0; **#4 flex-ddG on orientation-corrected poses gets the test/prog selectivity shift WRONG-SIGNED for all 3 validated singles** (I61L/L85I/E106L). Computation is reliable only for **coarse binder/order/dead-binder** questions. **→ See `docs/COMPUTATIONAL_BOUNDARY.md` for the full CAN/CANNOT boundary + evidence + when-to-use guide. The trusted specificity signal is the wet-lab scan / round-1 dose-response.**
 - **Empirical leads** (`results/stage1f_empirical/`): testosterone-selective = **E106L, L85I, I61L**; **R123E → cortisol** (validated); estradiol unreachable by point mutation.
 
 ## Pipeline (4-tier)
