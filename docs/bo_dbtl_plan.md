@@ -134,8 +134,53 @@ noise directly* — the two quantities the whole GP extrapolation depends on —
 > honest position/class split — beating an additive baseline, with calibrated intervals — the features/objective are
 > wrong and **no wet-lab round is justified**. Cheap, honest, and the direct answer to the ranker's generalization failure.
 
-## Target decision — deferred to after P1 (resolved 2026-06-22)
-Stay **target-agnostic** through P0/P1; default to **testosterone>progesterone** for concrete benchmark pass
-criteria. **Commit the campaign target only after the P1 grouped-CV gate + ablation pass.** estradiol ⇒ also
-build an explicit DBD-activation objective + multi-residue clamp; test>prog ⇒ round-1 doubles (I61L+L85I) are the
-natural start. Pick before P2 candidate generation / round-1 build.
+## Target decision — RESOLVED 2026-06-22: **testosterone > progesterone**
+P0/P1 ran target-agnostic; the P1 grouped-CV gate **FAILED** (below), so the campaign target was committed by
+human/PI call on the panel's recommendation: **testosterone > progesterone** — reachable, first-shell D-ring
+lever, validated singles (E106L/L85I/I61L), round-1 doubles ready (I61L+L85I, I61L+Q88L/T). estradiol moonshot
+and cortisol set aside.
+
+## Branch #2 — post-P1 PIVOT (2026-06-22; supersedes the BO-now plan above)
+
+**P1 verdict (`results/stage4_bo/P1_conclusion.md`, panel-reviewed
+`conversations/20260622_141256_bo_plan_review.md`):** the leave-one-POSITION-out grouped-CV kill-switch FAILED
+for ALL feature modes — testosterone physchem/esm/concat GP Spearman −0.26/−0.14/−0.10; cortisol −0.58/+0.02/+0.05;
+a trivial additive Ridge baseline beats every GP (cortisol +0.29); known leads NOT rediscovered. **⇒ Do not run
+GP/qNEHVI BO now** (it would be active-learning theater). The cheap CPU gate did its job — it killed a wet-lab
+campaign built on a non-predictive surrogate.
+
+**Panel guardrail (do not over-claim):** P1 was a *triple-compromised* test — mean-pooled ESM/physchem, on
+A-ring-flipped poses, against a single-dose objective. It falsifies *this* surrogate; it does **not** prove
+selectivity is fundamentally unlearnable. **Keep the path to revisit BO** once multi-mutant + dose-response data
+exist; do not build on the additive +0.29 (within noise on a few position groups).
+
+**Branch-2 work (ordered, least spend first):**
+1. ✅ **Commit target** = testosterone>progesterone (above).
+2. ✅ **Freeze GP/qNEHVI BO** (P1 justifies it; modules preserved for revisit).
+3. ✅ **35.5 / 38 Å DBD-gate threshold provenance — RESOLVED (human, 2026-06-22):** the thresholds are
+   **Boltz-self-derived** — read off the Boltz apo/holo DBD-spacing prediction distribution, chosen as the metric
+   to *predict* a possible gate. They are **NOT literature-anchored**: Routh 2009 (Y49–Y49′ 42→39/34 Å) is a
+   structurally different system, **not transferable** as a filter value, and **no computational tool we have can
+   reproduce that experimental result**. ⇒ The gate is a **Boltz-internal heuristic** — circular if used to score
+   Boltz's own outputs quantitatively. **Use only as a COARSE / qualitative dead-binder check, never as a
+   quantitative cross-system filter** (consistent with the established "amplitude = wet-lab; opening = qualitative
+   dead-binder only" conclusion). Consequence for #4: the retrodiction benchmark leans on **flex-ddG ΔΔΔG
+   specificity (Tier-1)**, not on the Å gate as a discriminator.
+4. ⏳ **Retrodiction benchmark on orientation-corrected poses** — SAR-restrain the A-ring to the progesterone-style
+   pose + orientation filter, ≥3 seeds, median + spread; require flex-ddG + gate to reproduce WT order, I61L/L85I
+   testosterone bias, A66M leak. *Decides whether ANY in-silico pre-filter survives.* (compute-only)
+5. ✅ **Dose-response objective, y2 dropped** — `tfsensor/ml/bo/doseresponse.py`: 4-param Hill per
+   (variant, steroid) → basal/amplitude/EC50/Hill; `y1` = amplitude-ratio selectivity (basal subtracted) with an
+   EC50 operating-range check; replicate/fit variance → heteroscedastic GP `Yvar`. Amplitude/sensor-quality is a
+   wet-lab-measured constraint, **not** a predicted objective. Single-dose round-0 degrades to a flagged fallback.
+6. ✅ **Round-1 diagnostic designed** — `tfsensor/ml/bo/round1_design.py` →
+   `results/stage4_bo/round1_diagnostic.{md,json}`: 12 variants (WT + validated singles + Q88L/T +
+   the doubles I61L+L85I, I61L+Q88L, I61L+Q88T + leads des0039/44/60) × 4 steroids × 8 doses × ≥3 reps = 1152
+   wells (3×384). Emits the **additive-epistasis prior** per double (I61L+L85I → +0.12; I61L+Q88L → −0.97) as the
+   null the plate tests. **This is the single decisive wet-lab spend** — it measures epistasis + assay noise
+   directly. *Pending: wet-lab execution + the 35.5/38 Å confirmation (#3).*
+7. ⏳ **Defer Tier-2 FEP** until fixed pose/protonation/restraints/drift-cutoff/≥3 replicates are in place.
+
+**Decision rule after round-1:** doubles additive (within noise) → an additive surrogate + active learning is
+justified, revisit a GP; strong positive epistasis → combinatorial search has real headroom, re-attempt BO on
+clean data; negative epistasis / no responders → pocket saturated at k=2, report the validated leads.
