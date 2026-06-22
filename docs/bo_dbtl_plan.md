@@ -166,9 +166,21 @@ exist; do not build on the additive +0.29 (within noise on a few position groups
    quantitative cross-system filter** (consistent with the established "amplitude = wet-lab; opening = qualitative
    dead-binder only" conclusion). Consequence for #4: the retrodiction benchmark leans on **flex-ddG ΔΔΔG
    specificity (Tier-1)**, not on the Å gate as a discriminator.
-4. ⏳ **Retrodiction benchmark on orientation-corrected poses** — SAR-restrain the A-ring to the progesterone-style
-   pose + orientation filter, ≥3 seeds, median + spread; require flex-ddG + gate to reproduce WT order, I61L/L85I
-   testosterone bias, A66M leak. *Decides whether ANY in-silico pre-filter survives.* (compute-only)
+4. ✅ **Retrodiction on orientation-corrected poses — DONE (2026-06-22, `tfsensor/ml/bo/retrodict.py`,
+   `results/stage4_bo/retrodiction.{md,json}`).** flex-ddG (NOT the Å gate) on SAR-consistent WT-holo poses.
+   **Two-part verdict:**
+   - **Pose availability is the first finding:** Boltz flips the target's A-ring — only **testosterone 1/15**
+     SAR-consistent (prog 3/15, cort 14/15, estradiol 5/15). The target is pose-starved (n=1, no seed spread).
+   - **WT steroid order: RECOVERED** ✓ — flex-ddG dG ranks test(−20.56) < cort(−20.38) < prog(−19.67), estradiol
+     weakest (−14.95) = empirical fold order. So the **coarse binder / rough-order signal is real**.
+   - **Mutation-level selectivity shift: FAIL** ✗ — for ALL three validated singles the (dG_test−dG_prog) shift vs
+     WT is **positive** (I61L +4.31, L85I +2.45, E106L +1.93 kcal/mol) = flex-ddG says they make testosterone
+     *less* prog-selective, but empirically they raise the test/prog fold ratio (2.26→7.24/8.78/4.68). **Wrong sign,
+     3/3.** Consistent with the established "specificity not resolvable by binding-ΔΔG at ~1 kcal/mol" + E106L FEP GIGO.
+   - **⇒ No in-silico SELECTIVITY pre-filter is justified** (GP, flex-ddG, and Boltz all fail at the mutation level).
+     Keep flex-ddG/orientation only as a **COARSE dead-binder gate** (the one signal that retrodicts). The campaign's
+     selectivity decisions rest entirely on the **round-1 wet-lab dose-response diagnostic**. Re-folding WT-test for
+     more poses is low-value: a +4.3 kcal/mol sign error across 3/3 leads won't be rescued by reducing n=1 noise.
 5. ✅ **Dose-response objective, y2 dropped** — `tfsensor/ml/bo/doseresponse.py`: 4-param Hill per
    (variant, steroid) → basal/amplitude/EC50/Hill; `y1` = amplitude-ratio selectivity (basal subtracted) with an
    EC50 operating-range check; replicate/fit variance → heteroscedastic GP `Yvar`. Amplitude/sensor-quality is a
