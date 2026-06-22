@@ -50,7 +50,15 @@ def _answer(agent, hist, msg, ground, use_tools):
             if trace:
                 with st.expander("🛠️ tool calls (real computations)", expanded=True):
                     for t in trace:
-                        st.write(f"`{t['tool']}({t['args']})` → {t['result']}")
+                        st.write(f"`{t['tool']}({t['args']})`")
+                        res = t.get("result")
+                        img = res.get("image") if isinstance(res, dict) else None
+                        if img and os.path.exists(img):
+                            st.image(img, width=460,
+                                     caption=f"PyMOL · {os.path.basename(img)}")
+                            st.write({k: v for k, v in res.items() if k != "image"})
+                        else:
+                            st.write(res)
             return ans or "(no answer)"
         except Exception as exc:
             return f"⚠️ {exc}"

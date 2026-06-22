@@ -1,0 +1,57 @@
+# MiniCrewAI crew: review the Bayesian-optimization DBTL plan for AcrR biosensors.
+# Reuses ML/Statistics + Structural Biologist + PI, adds High-Throughput Screening.
+# The plan under review is injected as a context file (docs/bo_dbtl_plan.md) — no upload needed.
+name: bo_plan_review
+project: AcrR steroid biosensor — BO/DBTL plan review
+topology: parallel_blind
+
+task: >
+  Critically review the attached Bayesian-optimization design-build-test-learn (DBTL)
+  plan for engineering steroid-selective AcrR biosensors (docs/bo_dbtl_plan.md).
+  Stress-test, in your area: (1) the GP surrogate + ESM/physchem features and the
+  singles→multi-mutation EPISTASIS extrapolation risk (the seed data is single-mutant,
+  the targets are multi-mutant); (2) the multi-objective definitions (selectivity +
+  sensor quality) derived from the GFP fold-induction data; (3) the wet-lab round
+  protocol — batch size, throughput, latency, buildability, assay controls; (4) the
+  retrospective leave-one-out go/no-go gate. Surface where the plan over-claims, what
+  would make it fail, and the cheapest changes that most de-risk it BEFORE any wet-lab spend.
+
+# Always-injected review material (repo-relative). The plan itself is first.
+context_files:
+  - docs/bo_dbtl_plan.md
+  - PROGRESS.md
+
+# Grounding evidence — "more reliable than priors".
+evidence_files:
+  - LAB_MANUAL.md
+
+# Typed project knowledge (trust-tiered), incl. the closed-loop decisions layer.
+knowledge:
+  - pitfalls
+  - computational
+  - experimental
+  - decisions
+  - engineering
+
+# Reviewers — spread across providers for diversity.
+roles:
+  - name: ML / Statistics              # GP/BO methodology, leakage, the LOO gate
+    model: openai                      # ChatGPT — gpt-5.5
+    persona_file: personas/ml_statistics.md
+    word_limit: 280
+
+  - name: Structural Biologist         # pocket mechanism, allostery, does the objective map to function
+    model: claude_cli
+    persona_file: personas/structural_biologist.md
+    word_limit: 280
+
+  - name: High-Throughput Screening    # buildability, throughput/latency, GFP-assay controls
+    model: claude_cli
+    persona_file: personas/hts_assay.md
+    word_limit: 280
+
+# Final synthesis turn (sees every review).
+synthesizer:
+  name: PI / Moderator
+  model: claude_cli
+  persona_file: personas/moderator.md

@@ -154,6 +154,45 @@ def train_model(csv_path, target_column, smiles_column=None):
         return {"error": f"training failed: {exc}"}
 
 
+def analyze_structure(pdb_path, ligand_resname=None, pocket_cutoff=5.0, render=True):
+    """Run **real PyMOL** on a protein–ligand complex (PDB or .cif, incl. Boltz/
+    Protenix output): report the ligand, the pocket residues within a cutoff, and
+    the polar (H-bond-like) ligand↔protein contacts with distances, AND render a
+    pocket image. Use this to inspect a *predicted pose* — which residues line the
+    pocket, is the 3-keto/OH actually H-bonded, does the orientation look sane.
+    The returned ``image`` path is shown inline in the chat."""
+    import json
+    import os
+    import subprocess
+    from . import config
+
+    if not os.path.isabs(pdb_path):
+        pdb_path = os.path.join(config.REPO_ROOT, pdb_path)
+    if not os.path.exists(pdb_path):
+        return {"error": f"file not found: {pdb_path}"}
+    pymol = config.get("MINICREW_PYMOL_BIN",
+                       os.path.expanduser("~/.conda/envs/pyrosetta/bin/pymol"))
+    if not os.path.exists(pymol):
+        return {"error": f"PyMOL not found at {pymol}; set MINICREW_PYMOL_BIN"}
+    script = os.path.join(config.REPO_ROOT, "tfsensor", "pymol_analyze.py")
+    out_png = ""
+    if render:
+        cache = os.path.join(config.REPO_ROOT, "data/ml/cache/pymol")
+        os.makedirs(cache, exist_ok=True)
+        base = os.path.splitext(os.path.basename(pdb_path))[0]
+        out_png = os.path.join(cache, f"{base}_{ligand_resname or 'auto'}.png")
+    args = [pymol, "-cq", script, "--", pdb_path,
+            ligand_resname or "auto", str(pocket_cutoff), out_png]
+    try:
+        proc = subprocess.run(args, capture_output=True, text=True, timeout=180)
+    except Exception as exc:
+        return {"error": f"pymol run failed: {exc}"}
+    for line in proc.stdout.splitlines():
+        if "PYMOL_JSON:" in line:
+            return json.loads(line.split("PYMOL_JSON:", 1)[1])
+    return {"error": "no PyMOL output", "stderr": (proc.stderr or "")[-300:]}
+
+
 REGISTRY = {
     "ligand_descriptors": {
         "fn": ligand_descriptors,
@@ -190,6 +229,25 @@ REGISTRY = {
                                             "(repo-relative ok)"},
                 "ligand_resname": {"type": "string",
                                    "description": "ligand residue name (default STR)"}},
+            "required": ["pdb_path"]},
+    },
+    "analyze_structure": {
+        "fn": analyze_structure,
+        "description": "Run real PyMOL on a protein–ligand complex (PDB or .cif, "
+                       "including Boltz/Protenix predicted structures): returns the "
+                       "ligand, the pocket residues within a cutoff, and the polar "
+                       "(H-bond-like) ligand–protein contacts with distances. Use "
+                       "to inspect a predicted pose (which residues line the pocket, "
+                       "is the 3-keto/OH H-bonded, is the orientation sane).",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "pdb_path": {"type": "string",
+                             "description": "path to a complex PDB/CIF (repo-relative ok)"},
+                "ligand_resname": {"type": "string",
+                                   "description": "ligand residue name; omit to auto-detect"},
+                "pocket_cutoff": {"type": "number",
+                                  "description": "pocket radius in Å (default 5.0)"}},
             "required": ["pdb_path"]},
     },
     "train_model": {
