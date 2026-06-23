@@ -25,7 +25,7 @@ import sys
 
 import yaml
 
-from . import config, context, knowledge, llm
+from . import config, context, knowledge, llm, toolrun
 
 # ----------------------------------------------------------------------------
 # terminal styling (no-op when not a tty)
@@ -108,6 +108,10 @@ def _material(crew, ctx, evidence):
     if kn:
         parts.append("## Project knowledge — weigh each block by its stated "
                      f"TRUST tier\n{kn}")
+    if crew.get("tools"):
+        tb = toolrun.tools_block(crew["tools"])
+        if tb:
+            parts.append(tb)
     parts.append(f"## Task\n{crew.get('task', crew.get('description', ''))}")
     return parts
 
@@ -179,6 +183,30 @@ def _invoke(role, prompt, mock):
         return False, spec["alias"], spec["model"], f"[skipped — {exc}]"
 
 
+def _maybe_run_tools(crew, role, text, transcript, on_event, rnd):
+    """If the crew has tools enabled and the role's reply contains tool requests,
+    execute them (allow-list enforced) and append a compact Tool-Runner turn so
+    later agents see real computational results. Returns the appended record or None."""
+    crew_tools = crew.get("tools")
+    if not crew_tools:
+        return None
+    reqs = toolrun.parse_requests(text)
+    if not reqs:
+        return None
+    allowed = role.get("tools") or crew_tools     # role may narrow the crew allow-list
+    allowed = [t for t in allowed if t in crew_tools]
+    results = toolrun.execute(reqs, allowed, requested_by=role["name"], on_event=on_event)
+    body = "\n\n".join(r["compact"] for r in results)
+    runner = {"name": "Tool-Runner"}
+    rec = _record(runner, "skills", "—", "tool",
+                  f"(deterministic skill execution requested by {role['name']})",
+                  body, True)
+    _print_turn(0, runner, "skills", "—", body, True, marker="▶")
+    transcript.append(rec)
+    _emit(on_event, type="turn", round=rnd, **rec)
+    return rec
+
+
 def _print_turn(idx, role, alias, model, text, ok, marker="●"):
     color = (_COLORS[idx % len(_COLORS)] if marker == "●" else _WHITE)
     print(_c(f"\n{marker} {role['name']}  [{alias}:{model}]", color + _BOLD))
@@ -206,6 +234,11 @@ def run_crew(name, extra_files=None, rounds=None, topology=None,
     kn_query = None if (mock or dry_run) else (crew.get("task") or crew.get("description"))
     crew["_knowledge"] = knowledge.build(crew.get("knowledge"), query=kn_query)
 
+    # Provider-aware tool routing guard: a role may only use NATIVE tool-calling
+    # if its provider supports it; claude_cli etc. use the Tool-Request protocol.
+    for role in crew["roles"]:
+        toolrun.assert_tool_routing(role, config.resolve_model(role["model"]))
+
     tag = "  [DRY RUN]" if dry_run else ("  [MOCK]" if mock else "")
     print(_c(f"\n=== MiniCrewAI: {crew['name']} ===", _BOLD))
     print(_c(crew.get("task", crew.get("description", "")).strip(), _DIM))
@@ -230,6 +263,8 @@ def run_crew(name, extra_files=None, rounds=None, topology=None,
             rec = _record(role, alias, model, "reviewer", prompt, text, ok)
             transcript.append(rec)
             _emit(on_event, type="turn", round=1, **rec)
+            if ok:
+                _maybe_run_tools(crew, role, text, transcript, on_event, 1)
     else:  # round_robin
         for rnd in range(1, rounds + 1):
             if rounds > 1:
@@ -241,6 +276,8 @@ def run_crew(name, extra_files=None, rounds=None, topology=None,
                 rec = _record(role, alias, model, "reviewer", prompt, text, ok)
                 transcript.append(rec)
                 _emit(on_event, type="turn", round=rnd, **rec)
+                if ok:
+                    _maybe_run_tools(crew, role, text, transcript, on_event, rnd)
 
     synth = crew.get("synthesizer")
     if synth:

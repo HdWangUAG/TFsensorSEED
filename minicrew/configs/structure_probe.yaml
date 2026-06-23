@@ -1,0 +1,37 @@
+name: structure_probe
+project: AcrR steroid biosensor — pose-inspection demo (P1 skills in crews)
+
+# Round-robin so the Skeptic + Moderator see the Structural Biologist's tool result.
+topology: round_robin
+rounds: 1
+
+task: >
+  Inspect the predicted holo pose data/AcrR_STR_001.pdb (ligand resname STR).
+  BEFORE judging, RUN the analyze_structure tool to see the actual pocket residues
+  and polar contacts, then assess: is the A-ring 3-keto plausibly H-bonded, do the
+  pocket residues match the expected recognition cluster, and does the orientation
+  look sane? Cite the tool result; flag uncertainty rather than guessing.
+
+# Enabling tools turns on the Tool-Request protocol for this crew's reasoning
+# agents (claude_cli). They emit a ```tool_request``` block; the runtime executes
+# the skill, writes an artifact + evidence record, and folds a compact result in.
+tools:
+  - analyze_structure
+
+knowledge:
+  - pitfalls
+
+roles:
+  - name: Structural Biologist
+    model: claude_cli
+    persona_file: personas/structural_biologist.md
+    word_limit: 280
+  - name: Skeptic
+    model: claude_cli
+    persona_file: personas/skeptic.md
+    word_limit: 200
+
+synthesizer:
+  name: PI / Moderator
+  model: claude_cli
+  persona_file: personas/moderator.md

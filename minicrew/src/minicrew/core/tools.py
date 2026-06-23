@@ -1,277 +1,49 @@
-"""Tool registry — real functions agents can call (Phase 3 tool-calling).
+"""Compat shim — the legacy tool surface, now generated from the skill registry.
 
-Each tool is a Python function with a name, description and JSON-schema params.
-The first batch is RDKit cheminformatics (real numbers for the ligand side of the
-project). Add PyRosetta / ESM2 / XGBoost tools here the same way later.
+The real capabilities live in `skills_impl.py` (registered via `@skill`); the
+framework is in `skills.py`. This module preserves the old API so the CLI
+(`minicrew tool`) and the Streamlit chat page keep working unchanged:
+
+- `REGISTRY[name]["fn"](**args)` returns the LEGACY plain dict (success payload,
+  possibly with an `image`; or `{"error": ...}`) by unwrapping the rich
+  SkillResult via `skills.to_legacy`.
+- `openai_schemas(names)` is the OpenAI function-calling tool list.
+
+New code should prefer `skills.call(name, **args)` to get the full SkillResult
+(result + artifacts + provenance), which crews need.
 """
 from __future__ import annotations
 
-# A few project-relevant ligands so agents can pass a name instead of SMILES.
-KNOWN_SMILES = {
-    "estradiol": "C[C@]12CC[C@H]3[C@@H](CCc4cc(O)ccc43)[C@@H]1CC[C@@H]2O",
-    "testosterone": "C[C@]12CC[C@H]3[C@@H](CCC4=CC(=O)CC[C@]34C)[C@@H]1CC[C@@H]2O",
-    "progesterone": "CC(=O)[C@H]1CC[C@H]2[C@@H]3CCC4=CC(=O)CC[C@]4(C)[C@H]3CC[C@]12C",
-    "cortisol": "C[C@]12C[C@H](O)[C@H]3[C@@H](CCC4=CC(=O)CC[C@]34C)[C@@H]1CC[C@@]2(O)C(=O)CO",
-}
+from . import skills
+# Re-export the skill functions + data so existing `tools.<fn>` imports still work.
+from .skills_impl import (  # noqa: F401
+    KNOWN_SMILES, ligand_descriptors, ligand_similarity, interaction_fingerprint,
+    train_model, analyze_structure,
+)
 
 
-def _mol(smiles_or_name):
-    from rdkit import Chem
-    s = KNOWN_SMILES.get(str(smiles_or_name).strip().lower(), smiles_or_name)
-    return Chem.MolFromSmiles(s), s
+# The original tool surface — what the CLI + chat page expose by default, so
+# behaviour is unchanged. New/heavy skills (flexddg_score, retrodict) live in
+# skills.SKILLS and are reached only via explicit allow-lists (P1 crews).
+LEGACY_NAMES = ["ligand_descriptors", "ligand_similarity", "interaction_fingerprint",
+                "analyze_structure", "train_model"]
 
 
-def ligand_descriptors(ligand):
-    """Physicochemical descriptors for a ligand (name or SMILES)."""
-    from rdkit.Chem import Crippen, Descriptors, rdMolDescriptors
-    mol, smi = _mol(ligand)
-    if mol is None:
-        return {"error": f"could not parse {ligand!r}"}
-    return {
-        "input": ligand, "smiles": smi,
-        "MW": round(Descriptors.MolWt(mol), 2),
-        "logP": round(Crippen.MolLogP(mol), 2),
-        "HBD": rdMolDescriptors.CalcNumHBD(mol),
-        "HBA": rdMolDescriptors.CalcNumHBA(mol),
-        "TPSA": round(rdMolDescriptors.CalcTPSA(mol), 1),
-        "rings": rdMolDescriptors.CalcNumRings(mol),
-        "aromatic_rings": rdMolDescriptors.CalcNumAromaticRings(mol),
-        "rot_bonds": rdMolDescriptors.CalcNumRotatableBonds(mol),
-    }
+def _legacy_fn(name):
+    def fn(**kwargs):
+        return skills.to_legacy(skills.call(name, **kwargs))
+    return fn
 
 
-def ligand_similarity(ligand_a, ligand_b):
-    """Tanimoto similarity (Morgan r2) between two ligands (names or SMILES)."""
-    from rdkit.Chem import AllChem, DataStructs
-    ma, _ = _mol(ligand_a)
-    mb, _ = _mol(ligand_b)
-    if ma is None or mb is None:
-        return {"error": "could not parse one of the ligands"}
-    fa = AllChem.GetMorganFingerprintAsBitVect(ma, 2, 2048)
-    fb = AllChem.GetMorganFingerprintAsBitVect(mb, 2, 2048)
-    return {"ligand_a": ligand_a, "ligand_b": ligand_b,
-            "tanimoto": round(DataStructs.TanimotoSimilarity(fa, fb), 3)}
-
-
-def interaction_fingerprint(pdb_path, ligand_resname="STR"):
-    """ProLIF protein–ligand interaction fingerprint from a complex PDB:
-    which protein residues contact the ligand and via what interaction type."""
-    import os
-    if not os.path.isabs(pdb_path):
-        from . import config
-        pdb_path = os.path.join(config.REPO_ROOT, pdb_path)
-    try:
-        import MDAnalysis as mda
-        import prolif as plf
-        u = mda.Universe(pdb_path)
-        lig_ag = u.select_atoms(f"resname {ligand_resname}")
-        prot_ag = u.select_atoms("protein")
-        if len(lig_ag) == 0:
-            return {"error": f"no ligand with resname {ligand_resname!r} in {pdb_path}"}
-        # NoImplicit=False: allow implicit H (these PDBs have no explicit H) — H-bond
-        # calls are then approximate, but hydrophobic / pi / contacts are recovered.
-        lig = plf.Molecule.from_mda(lig_ag, NoImplicit=False)
-        prot = plf.Molecule.from_mda(prot_ag, NoImplicit=False)
-        fp = plf.Fingerprint()
-        fp.run_from_iterable([lig], prot, progress=False)
-        df = fp.to_dataframe()
-    except Exception as exc:
-        return {"error": f"ProLIF failed: {exc}"}
-    by_res = {}
-    for col in df.columns:
-        prot_res, inter = col[1], col[-1]
-        by_res.setdefault(str(prot_res), set()).add(str(inter))
-    summary = {r: sorted(v) for r, v in sorted(by_res.items())}
-    return {"pdb": os.path.basename(pdb_path), "ligand_resname": ligand_resname,
-            "n_interacting_residues": len(summary), "interactions": summary}
-
-
-def train_model(csv_path, target_column, smiles_column=None):
-    """Train an XGBoost model on a CSV and report cross-validated performance +
-    top feature importances. If `smiles_column` is given, RDKit descriptors are
-    the features; otherwise the numeric columns are. Auto-detects classification
-    vs regression from the target."""
-    import os
-    import numpy as np
-    import pandas as pd
-    if not os.path.isabs(csv_path):
-        from . import config
-        csv_path = os.path.join(config.REPO_ROOT, csv_path)
-    try:
-        df = pd.read_csv(csv_path)
-    except Exception as exc:
-        return {"error": f"could not read {csv_path}: {exc}"}
-    if target_column not in df.columns:
-        return {"error": f"target {target_column!r} not in columns {list(df.columns)}"}
-
-    if smiles_column and smiles_column in df.columns:
-        rows = [ligand_descriptors(s) for s in df[smiles_column]]
-        feat = pd.DataFrame([{k: v for k, v in r.items()
-                              if isinstance(v, (int, float))} for r in rows])
-        feat_names = list(feat.columns)
-        X = feat.values
-    else:
-        num = df.select_dtypes("number").drop(columns=[target_column], errors="ignore")
-        feat_names, X = list(num.columns), num.values
-    y_raw = df[target_column]
-    n = len(df)
-    classification = (y_raw.dtype == object) or (y_raw.nunique() <= 10
-                                                 and y_raw.dtype != float)
-    try:
-        import xgboost as xgb
-        from sklearn.metrics import accuracy_score, r2_score
-        from sklearn.model_selection import cross_val_predict
-        if classification:
-            classes, y = np.unique(y_raw, return_inverse=True)
-            model = xgb.XGBClassifier(n_estimators=200, max_depth=3,
-                                      verbosity=0, use_label_encoder=False)
-            metric = "accuracy"
-        else:
-            y = y_raw.values.astype(float)
-            model = xgb.XGBRegressor(n_estimators=200, max_depth=3, verbosity=0)
-            metric = "R2"
-        cv = min(5, n)
-        score, note = None, ""
-        if n >= 6 and cv >= 2:
-            pred = cross_val_predict(model, X, y, cv=cv)
-            score = (accuracy_score(y, pred) if classification
-                     else r2_score(y, pred))
-        else:
-            note = f"only {n} rows — too few for CV; importances from a full fit"
-        model.fit(X, y)
-        imp = sorted(zip(feat_names, model.feature_importances_),
-                     key=lambda t: -t[1])[:8]
-        out = {"rows": n, "task": "classification" if classification else "regression",
-               "features": feat_names,
-               "top_importances": [{"feature": f, "importance": round(float(i), 3)}
-                                   for f, i in imp]}
-        if score is not None:
-            out[f"cv_{metric}"] = round(float(score), 3)
-        if note:
-            out["note"] = note
-        return out
-    except Exception as exc:
-        return {"error": f"training failed: {exc}"}
-
-
-def analyze_structure(pdb_path, ligand_resname=None, pocket_cutoff=5.0, render=True):
-    """Run **real PyMOL** on a protein–ligand complex (PDB or .cif, incl. Boltz/
-    Protenix output): report the ligand, the pocket residues within a cutoff, and
-    the polar (H-bond-like) ligand↔protein contacts with distances, AND render a
-    pocket image. Use this to inspect a *predicted pose* — which residues line the
-    pocket, is the 3-keto/OH actually H-bonded, does the orientation look sane.
-    The returned ``image`` path is shown inline in the chat."""
-    import json
-    import os
-    import subprocess
-    from . import config
-
-    if not os.path.isabs(pdb_path):
-        pdb_path = os.path.join(config.REPO_ROOT, pdb_path)
-    if not os.path.exists(pdb_path):
-        return {"error": f"file not found: {pdb_path}"}
-    pymol = config.get("MINICREW_PYMOL_BIN",
-                       os.path.expanduser("~/.conda/envs/pyrosetta/bin/pymol"))
-    if not os.path.exists(pymol):
-        return {"error": f"PyMOL not found at {pymol}; set MINICREW_PYMOL_BIN"}
-    script = os.path.join(config.REPO_ROOT, "tfsensor", "pymol_analyze.py")
-    out_png = ""
-    if render:
-        cache = os.path.join(config.REPO_ROOT, "data/ml/cache/pymol")
-        os.makedirs(cache, exist_ok=True)
-        base = os.path.splitext(os.path.basename(pdb_path))[0]
-        out_png = os.path.join(cache, f"{base}_{ligand_resname or 'auto'}.png")
-    args = [pymol, "-cq", script, "--", pdb_path,
-            ligand_resname or "auto", str(pocket_cutoff), out_png]
-    try:
-        proc = subprocess.run(args, capture_output=True, text=True, timeout=180)
-    except Exception as exc:
-        return {"error": f"pymol run failed: {exc}"}
-    for line in proc.stdout.splitlines():
-        if "PYMOL_JSON:" in line:
-            return json.loads(line.split("PYMOL_JSON:", 1)[1])
-    return {"error": "no PyMOL output", "stderr": (proc.stderr or "")[-300:]}
-
-
+# Built from SKILLS (single source of truth), restricted to the legacy surface.
 REGISTRY = {
-    "ligand_descriptors": {
-        "fn": ligand_descriptors,
-        "description": "Compute physicochemical descriptors (MW, logP, H-bond "
-                       "donors/acceptors, TPSA, rings, aromatic rings, rotatable "
-                       "bonds) for a ligand given a name or SMILES.",
-        "parameters": {
-            "type": "object",
-            "properties": {"ligand": {"type": "string",
-                           "description": "ligand name (e.g. estradiol) or SMILES"}},
-            "required": ["ligand"]},
-    },
-    "ligand_similarity": {
-        "fn": ligand_similarity,
-        "description": "Tanimoto (Morgan) similarity between two ligands "
-                       "(names or SMILES).",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "ligand_a": {"type": "string"},
-                "ligand_b": {"type": "string"}},
-            "required": ["ligand_a", "ligand_b"]},
-    },
-    "interaction_fingerprint": {
-        "fn": interaction_fingerprint,
-        "description": "ProLIF protein–ligand interaction fingerprint from a "
-                       "complex PDB: which protein residues contact the ligand "
-                       "and how (hydrophobic, H-bond, pi-stacking, …).",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "pdb_path": {"type": "string",
-                             "description": "path to a protein–ligand complex PDB "
-                                            "(repo-relative ok)"},
-                "ligand_resname": {"type": "string",
-                                   "description": "ligand residue name (default STR)"}},
-            "required": ["pdb_path"]},
-    },
-    "analyze_structure": {
-        "fn": analyze_structure,
-        "description": "Run real PyMOL on a protein–ligand complex (PDB or .cif, "
-                       "including Boltz/Protenix predicted structures): returns the "
-                       "ligand, the pocket residues within a cutoff, and the polar "
-                       "(H-bond-like) ligand–protein contacts with distances. Use "
-                       "to inspect a predicted pose (which residues line the pocket, "
-                       "is the 3-keto/OH H-bonded, is the orientation sane).",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "pdb_path": {"type": "string",
-                             "description": "path to a complex PDB/CIF (repo-relative ok)"},
-                "ligand_resname": {"type": "string",
-                                   "description": "ligand residue name; omit to auto-detect"},
-                "pocket_cutoff": {"type": "number",
-                                  "description": "pocket radius in Å (default 5.0)"}},
-            "required": ["pdb_path"]},
-    },
-    "train_model": {
-        "fn": train_model,
-        "description": "Train an XGBoost model on a CSV and report cross-validated "
-                       "performance + top feature importances. Give smiles_column "
-                       "to use RDKit descriptors as features.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "csv_path": {"type": "string", "description": "CSV path (repo-relative ok)"},
-                "target_column": {"type": "string"},
-                "smiles_column": {"type": "string",
-                                  "description": "optional; column of SMILES to "
-                                                 "featurise with RDKit"}},
-            "required": ["csv_path", "target_column"]},
-    },
+    name: {"fn": _legacy_fn(name), "description": skills.SKILLS[name].description,
+           "parameters": skills.SKILLS[name].parameters}
+    for name in LEGACY_NAMES if name in skills.SKILLS
 }
 
 
 def openai_schemas(names=None):
-    """Tool list in OpenAI function-calling format."""
-    names = names or list(REGISTRY)
-    return [{"type": "function", "function": {
-                "name": n, "description": REGISTRY[n]["description"],
-                "parameters": REGISTRY[n]["parameters"]}}
-            for n in names if n in REGISTRY]
+    """Tool list in OpenAI function-calling format (delegates to skills).
+    Defaults to the legacy surface so CLI/chat behaviour is unchanged."""
+    return skills.openai_schemas(names or LEGACY_NAMES)

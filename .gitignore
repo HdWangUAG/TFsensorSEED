@@ -48,3 +48,6 @@ data/ml/esm_cache/
 # Multi-agent build scratch + generated reports
 .agents/
 *sync_report.md
+
+# minicrew skill run artifacts (transient; provenance lives in evidence records)
+minicrew/artifacts/
