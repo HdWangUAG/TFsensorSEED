@@ -281,6 +281,52 @@ def openai_schemas(names=None):
     return [SKILLS[n].to_openai_schema() for n in names if n in SKILLS]
 
 
+def catalog_markdown():
+    """The skills/ catalog md — generated from the live registry (single source)."""
+    out = ["# MiniCrew skills", "",
+           "Runnable scientific capabilities. Each is defined in "
+           "`src/minicrew/core/skills_impl.py` (registered via `@skill`); the "
+           "standalone processing scripts they shell out to live in "
+           "`skills/scripts/`. Use them on the **🛠️ Skills** page, or let crew "
+           "agents request them via the tool-request protocol.", "",
+           "_Auto-generated from the registry — regenerate with "
+           "`minicrew skills --write`._", "",
+           f"**{len(SKILLS)} skills:** " + ", ".join(f"`{n}`" for n in sorted(SKILLS)),
+           ""]
+    for n in sorted(SKILLS):
+        s = SKILLS[n]
+        req = s.requires or {}
+        out += [f"## `{n}`", s.description]
+        badges = []
+        if req.get("conda_env"):
+            badges.append(f"conda env `{req['conda_env']}`")
+        if req.get("binaries"):
+            badges.append("binaries " + ", ".join(f"`{b}`" for b in req["binaries"]))
+        if req.get("allow_network"):
+            badges.append("network")
+        if req.get("max_runtime_seconds", 0) >= 600:
+            badges.append(f"⏳ long-running (≤{req['max_runtime_seconds']}s)")
+        if badges:
+            out.append("- **requires:** " + " · ".join(badges))
+        props = (s.parameters or {}).get("properties", {})
+        required = set((s.parameters or {}).get("required", []))
+        if props:
+            out.append("- **args:**")
+            for k, p in props.items():
+                tag = "required" if k in required else "optional"
+                out.append(f"  - `{k}` ({p.get('type', 'string')}, {tag})"
+                           + (f" — {p['description']}" if p.get("description") else ""))
+        out.append("")
+    return "\n".join(out)
+
+
+def write_catalog(path=None):
+    path = path or os.path.join(config.MINICREW_DIR, "skills", "README.md")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    open(path, "w", encoding="utf-8").write(catalog_markdown())
+    return path
+
+
 def _now():
     return datetime.datetime.now().isoformat(timespec="seconds")
 

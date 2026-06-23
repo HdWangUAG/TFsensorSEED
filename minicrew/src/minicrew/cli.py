@@ -15,7 +15,7 @@ import subprocess
 import sys
 
 from .core import (config, crew, distill, embed, kdb, litdb, memory, scribe,
-                   toolcall, vision)
+                   skills, toolcall, vision)
 
 
 def _cmd_run(args):
@@ -201,6 +201,24 @@ def _cmd_supersede(args):
     print("default recall now hides it (use --include-superseded to see it).")
 
 
+def _cmd_skills(args):
+    if args.write:
+        path = skills.write_catalog()
+        print(f"wrote skill catalog → {os.path.relpath(path, config.REPO_ROOT)}")
+        return
+    print(f"{len(skills.SKILLS)} skills:")
+    for n, s in skills.list_skills().items():
+        req = s["requires"] or {}
+        tags = []
+        if req.get("conda_env"):
+            tags.append(req["conda_env"])
+        if req.get("binaries"):
+            tags.append("+".join(req["binaries"]))
+        ok, _ = skills.SKILLS[n].preflight()
+        print(f"  {'✓' if ok else '✗'} {n:22s} {('['+','.join(tags)+'] ') if tags else ''}"
+              f"{s['description'][:70]}")
+
+
 def _cmd_list(_args):
     crews = crew.list_crews()
     if not crews:
@@ -326,6 +344,11 @@ def build_parser():
     s.add_argument("--tag", action="append", default=[],
                    help="filter by tag (repeatable)")
     s.set_defaults(func=_cmd_search)
+
+    sk = sub.add_parser("skills", help="list skills (or --write the skills/ catalog)")
+    sk.add_argument("--write", action="store_true",
+                    help="(re)generate skills/README.md from the registry")
+    sk.set_defaults(func=_cmd_skills)
 
     sub.add_parser("list", help="list available crews").set_defaults(func=_cmd_list)
     sub.add_parser("models", help="show model aliases + key status").set_defaults(
