@@ -99,26 +99,52 @@ def _persona(role):
 # ----------------------------------------------------------------------------
 # prompt assembly  (the information boundary)
 # ----------------------------------------------------------------------------
-def _material(crew, ctx, evidence):
+def _material(crew, ctx, evidence, role=None):
     parts = [f"## Material to review\n{ctx}"]
     if evidence and evidence != "(no context files provided)":
         parts.append("## Grounding evidence (treat as more reliable than your "
                      f"priors)\n{evidence}")
-    kn = crew.get("_knowledge")
-    if kn:
-        parts.append("## Project knowledge — weigh each block by its stated "
-                     f"TRUST tier\n{kn}")
+    task = crew.get("task", crew.get("description", ""))
+    if crew.get("context_pack") and role is not None:
+        # role-specific, budgeted, status-filtered retrieval over typed memory
+        from . import context_pack
+        pack, _stats = context_pack.build_pack(task, role.get("name"))
+        parts.append(pack)
+    else:
+        kn = crew.get("_knowledge")
+        if kn:
+            parts.append("## Project knowledge — weigh each block by its stated "
+                         f"TRUST tier\n{kn}")
     if crew.get("tools"):
         tb = toolrun.tools_block(crew["tools"])
         if tb:
             parts.append(tb)
-    parts.append(f"## Task\n{crew.get('task', crew.get('description', ''))}")
+    parts.append(f"## Task\n{task}")
     return parts
+
+
+def _discussion_so_far(crew, transcript):
+    """Render prior turns. With context_pack on, compress all-but-the-last few
+    turns into a digest that PRESERVES who-said-what (so dissent survives) rather
+    than repeating every turn verbatim as the discussion grows."""
+    live = [t for t in transcript if t["ok"]]
+    if not live:
+        return "(you speak first)"
+    keep = 4
+    if crew.get("context_pack") and len(live) > keep:
+        early, recent = live[:-keep], live[-keep:]
+        digest = "\n".join(
+            f"- **{t['role']}**: {' '.join(t['content'].split())[:200]}…" for t in early)
+        recent_txt = "\n\n".join(f"**{t['role']}** ({t['alias']}):\n{t['content']}"
+                                 for t in recent)
+        return (f"_Earlier turns (compressed — each speaker's stance kept):_\n{digest}"
+                f"\n\n_Most recent turns (verbatim):_\n{recent_txt}")
+    return "\n\n".join(f"**{t['role']}** ({t['alias']}):\n{t['content']}" for t in live)
 
 
 def _reviewer_prompt(crew, ctx, evidence, role):
     """Blind reviewer: input + evidence + task. NOT the other reviewers."""
-    parts = _material(crew, ctx, evidence)
+    parts = _material(crew, ctx, evidence, role)
     cap = role.get("word_limit", 250)
     parts.append(f"## Your turn — {role['name']}\nCritique as this expert. Be "
                  f"concrete, cite specifics, order by severity. Keep it under "
@@ -128,11 +154,8 @@ def _reviewer_prompt(crew, ctx, evidence, role):
 
 def _round_prompt(crew, ctx, evidence, transcript, role):
     """Round-robin turn: input + evidence + discussion so far + task."""
-    parts = _material(crew, ctx, evidence)
-    turns = "\n\n".join(
-        f"**{t['role']}** ({t['alias']}):\n{t['content']}"
-        for t in transcript if t["ok"]) or "(you speak first)"
-    parts.append(f"## Discussion so far\n{turns}")
+    parts = _material(crew, ctx, evidence, role)
+    parts.append(f"## Discussion so far\n{_discussion_so_far(crew, transcript)}")
     cap = role.get("word_limit", 250)
     parts.append(f"## Your turn — {role['name']}\nBuild on or push back against "
                  f"the others (don't just agree). Be concrete. Keep it under "
@@ -144,9 +167,15 @@ def _moderator_prompt(crew, ctx, evidence, transcript, synth):
     parts = [f"## Original material\n{ctx}"]
     if evidence and evidence != "(no context files provided)":
         parts.append(f"## Grounding evidence\n{evidence}")
-    kn = crew.get("_knowledge")
-    if kn:
-        parts.append(f"## Project knowledge — weigh by TRUST tier\n{kn}")
+    if crew.get("context_pack"):
+        from . import context_pack
+        pack, _stats = context_pack.build_pack(
+            crew.get("task", crew.get("description", "")), synth.get("name", "Moderator"))
+        parts.append(pack)
+    else:
+        kn = crew.get("_knowledge")
+        if kn:
+            parts.append(f"## Project knowledge — weigh by TRUST tier\n{kn}")
     for t in transcript:
         if t["ok"]:
             parts.append(f"## Review by {t['role']} ({t['alias']})\n{t['content']}")

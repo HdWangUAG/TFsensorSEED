@@ -64,12 +64,35 @@ def _literature_retrieved(query):
     return "\n\n".join(blocks)
 
 
+# typed-record categories that GROW with use → retrieve by relevance, not dump.
+# (pitfalls stays whole-file so the curated docs/agent_memory/ is never dropped.)
+_TYPED_CAT = {"decisions": "decision", "claims": "claim", "evidence": "evidence"}
+
+
+def _typed_retrieved(cat, query):
+    """Top-k relevant typed records for a category (status-filtered), or None to
+    fall back to whole-file injection (no records yet)."""
+    from . import kdb
+    rtype = _TYPED_CAT[cat]
+    recs = kdb.search(query, types=[rtype], top_k=config.LIT_TOPK)
+    if not recs:
+        return None
+    trust = config.KNOWLEDGE_TRUST.get(cat, "unspecified")
+    blocks = [f"### [{cat}]  trust: {trust}  "
+              f"(top-{len(recs)} relevant records; superseded hidden)"]
+    for r in recs:
+        blocks.append(f"[record {r['id']} · status={r.get('status')} · "
+                      f"conf={r.get('confidence')}]\n{r.get('text', '')}")
+    return "\n\n".join(blocks)
+
+
 def build(categories, query=None):
     """Return a formatted, trust-labelled knowledge block (or "" if none).
 
-    When `query` is given and the DB is up, the `literature` category is
-    semantically retrieved (top-k) instead of dumping every note — the
-    context-bloat fix. All other categories are small/curated → injected whole.
+    When `query` is given, growing categories are RETRIEVED by relevance instead
+    of dumped: `literature` semantically (if the DB is up), and the typed-record
+    categories (decisions/claims/evidence) via kdb (status-filtered). Curated
+    categories (pitfalls/computational/experimental/engineering) stay whole-file.
     """
     if not categories:
         return ""
@@ -80,6 +103,11 @@ def build(categories, query=None):
             if sec is not None:
                 sections.append(sec)
                 continue  # else fall through to whole-files injection
+        if cat in _TYPED_CAT and query:
+            sec = _typed_retrieved(cat, query)
+            if sec is not None:
+                sections.append(sec)
+                continue
         files = _files(cat)
         if not files:
             continue
