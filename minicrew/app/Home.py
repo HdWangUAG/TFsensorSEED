@@ -43,6 +43,7 @@ def home():
             "- **🔬 Discussion room** — run a crew, watch agents discover live\n"
             "- **💬 Chat** — talk 1:1 with an agent, grounded in your knowledge\n"
             "- **🤖 Agents** — create / edit / delete knowledge & tool agents\n"
+            "- **🛠️ Skills** — browse + run the computational skills (PyMOL, flex-ddG, RDKit, literature)\n"
             "- **👥 Crews** — assemble agents into a team for a new topic\n"
             "- **📚 Literature** — ingest papers (PDF/SI/figures), distil, search\n"
             "- **🧭 Pipeline** — workflow + project status\n"
@@ -61,6 +62,7 @@ nav = [
     st.Page("pages/discussion.py", title="Discussion room", icon="🔬"),
     st.Page("pages/chat.py", title="Chat", icon="💬"),
     st.Page("pages/agents.py", title="Agents", icon="🤖"),
+    st.Page("pages/skills.py", title="Skills", icon="🛠️"),
     st.Page("pages/crews.py", title="Crews", icon="👥"),
     st.Page("pages/literature.py", title="Literature", icon="📚"),
     st.Page("pages/pipeline.py", title="Pipeline", icon="🧭"),
