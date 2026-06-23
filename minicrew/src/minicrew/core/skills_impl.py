@@ -233,6 +233,93 @@ def analyze_structure(pdb_path, ligand_resname=None, pocket_cutoff=5.0, render=T
     return {"error": "no PyMOL output", "stderr": rs["stderr_tail"][-300:]}
 
 
+@skill("pocket_mutation_view",
+       "Show a mutation's effect on the pocket: threads the mutation(s) onto a "
+       "holo complex (PyMOL mutagenesis rotamer swap) and renders the WT vs mutant "
+       "pocket SIDE-BY-SIDE in the same view, mutated residues highlighted. Use to "
+       "visualise steric/chemical changes (e.g. a D-ring clash). NOT energy-minimised.",
+       {"type": "object",
+        "properties": {
+            "pdb_path": {"type": "string",
+                         "description": "holo complex PDB/CIF (repo-relative ok)"},
+            "mutations": {"type": "array", "items": {"type": "string"},
+                          "description": "mutations to thread, e.g. ['I61L','L85I']"},
+            "ligand_resname": {"type": "string",
+                               "description": "ligand residue name; omit to auto-detect"}},
+        "required": ["pdb_path", "mutations"]},
+       requires={"binaries": ["pymol"], "conda_env": "pyrosetta",
+                 "max_runtime_seconds": 600, "allow_network": False, "allow_write": True})
+def pocket_mutation_view(pdb_path, mutations, ligand_resname=None):
+    abspath, err = safe_input_path(pdb_path)
+    if err:
+        return {"error": err}
+    if not os.path.exists(abspath):
+        return {"error": f"file not found: {pdb_path}"}
+    if not isinstance(mutations, list) or not mutations:
+        return {"error": "mutations must be a non-empty list, e.g. ['I61L']"}
+    pymol = config.get("MINICREW_PYMOL_BIN",
+                       os.path.expanduser("~/.conda/envs/pyrosetta/bin/pymol"))
+    if not os.path.exists(pymol):
+        return {"error": f"PyMOL not found at {pymol}; set MINICREW_PYMOL_BIN"}
+    cache = os.path.join(config.REPO_ROOT, "data/ml/cache/pymol")
+    os.makedirs(cache, exist_ok=True)
+    base = os.path.splitext(os.path.basename(abspath))[0]
+    tag = "_".join(mutations)
+    mut_pdb = os.path.join(cache, f"{base}_{tag}.pdb")
+
+    # 1) thread the mutation(s) with PyRosetta (headless PyMOL mutagenesis is broken)
+    t = run_subprocess([conda_python("pyrosetta"), "-m", "tfsensor.thread_mutant",
+                        abspath, ",".join(mutations), mut_pdb],
+                       timeout=600, cwd=config.REPO_ROOT,
+                       env_extra={"PYTHONPATH": config.REPO_ROOT})
+    if not os.path.exists(mut_pdb):
+        return {"error": f"threading failed (rc={t['rc']})", "stderr": t["stderr_tail"][-400:]}
+    thread_info = {}
+    for line in t["stdout"].splitlines():
+        if "THREAD_JSON:" in line:
+            thread_info = json.loads(line.split("THREAD_JSON:", 1)[1])
+
+    # 2) render WT + mutant pockets with the proven pymol_analyze script
+    script = os.path.join(config.REPO_ROOT, "tfsensor", "pymol_analyze.py")
+
+    def _render(pdb_in, png):
+        a = [pymol, "-cq", script, "--", pdb_in, ligand_resname or "auto", "5.0", png]
+        rs = run_subprocess(a, timeout=200)
+        for line in rs["stdout"].splitlines():
+            if "PYMOL_JSON:" in line:
+                return json.loads(line.split("PYMOL_JSON:", 1)[1])
+        return {"error": "no PyMOL output", "stderr": rs["stderr_tail"][-200:]}
+
+    wt_png = os.path.join(cache, f"{base}_wt.png")
+    mut_png = os.path.join(cache, f"{base}_{tag}_mut.png")
+    wt = _render(abspath, wt_png)
+    mut = _render(mut_pdb, mut_png)
+
+    def _ckeys(rep):
+        return {(c["residue"], c["ligand_atom"]) for c in (rep.get("polar_contacts") or [])}
+    lost = sorted(f"{r} · {a}" for r, a in _ckeys(wt) - _ckeys(mut))
+    gained = sorted(f"{r} · {a}" for r, a in _ckeys(mut) - _ckeys(wt))
+    mism = thread_info.get("mismatches") or []
+
+    return {"summary": f"WT vs {'+'.join(mutations)} pocket"
+            + (f" — {len(lost)} contact(s) lost, {len(gained)} gained" if (lost or gained) else "")
+            + ("; WT-IDENTITY MISMATCH" if mism else ""),
+            "metrics": {"mutations": "+".join(mutations),
+                        "wt_polar_contacts": wt.get("n_polar_contacts"),
+                        "mut_polar_contacts": mut.get("n_polar_contacts"),
+                        "applied": thread_info.get("applied")},
+            "contacts_lost": lost, "contacts_gained": gained,
+            "wt_pocket_residues": wt.get("pocket_residues"),
+            "mut_pocket_residues": mut.get("pocket_residues"),
+            "_artifacts": [{"type": "image", "uri": wt_png, "caption": "WT pocket"},
+                           {"type": "image", "uri": mut_png,
+                            "caption": "+".join(mutations) + " pocket"}],
+            "_provenance": {"input_files": [abspath], "output_files": [mut_pdb, wt_png, mut_png]},
+            "_warnings": (["WT-identity mismatch: " + "; ".join(mism)] if mism else [])
+            + ["mutant side-chains placed by PyRosetta MutateResidue (rotamer, not "
+               "full repack/minimise) — shows placement, not the relaxed pose"]}
+
+
 # ===========================================================================
 # flex-ddG scoring (subprocess: tfsensor.design_score worker, pyrosetta env)
 # ===========================================================================

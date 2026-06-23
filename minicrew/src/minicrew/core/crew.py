@@ -226,10 +226,14 @@ def _maybe_run_tools(crew, role, text, transcript, on_event, rnd):
     allowed = [t for t in allowed if t in crew_tools]
     results = toolrun.execute(reqs, allowed, requested_by=role["name"], on_event=on_event)
     body = "\n\n".join(r["compact"] for r in results)
+    images = [a["uri"] for r in results for a in (r.get("artifacts") or [])
+              if a.get("type") == "image" and a.get("uri")]
     runner = {"name": "Tool-Runner"}
     rec = _record(runner, "skills", "—", "tool",
                   f"(deterministic skill execution requested by {role['name']})",
                   body, True)
+    if images:                       # surfaced inline in the Discussion room UI
+        rec["images"] = images
     _print_turn(0, runner, "skills", "—", body, True, marker="▶")
     transcript.append(rec)
     _emit(on_event, type="turn", round=rnd, **rec)

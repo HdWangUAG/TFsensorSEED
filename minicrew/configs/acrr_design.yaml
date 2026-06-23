@@ -36,6 +36,7 @@ knowledge:
 # Skills the team may run mid-session (P1 Tool-Request protocol).
 tools:
   - analyze_structure
+  - pocket_mutation_view
   - flexddg_score
   - literature_search
 

@@ -37,12 +37,17 @@ st.caption("Reviewers: "
 
 
 def _render_turn(ev):
+    tool = ev.get("kind") == "tool"
     moderator = ev["kind"] == "moderator"
-    icon = "🟦" if moderator else "🔹"
-    with st.chat_message("assistant", avatar="🧑‍⚖️" if moderator else "🧑‍🔬"):
+    icon = "▶️" if tool else ("🟦" if moderator else "🔹")
+    avatar = "🛠️" if tool else ("🧑‍⚖️" if moderator else "🧑‍🔬")
+    with st.chat_message("assistant", avatar=avatar):
         rnd = f" · round {ev['round']}" if ev.get("round") else ""
         st.markdown(f"{icon} **{ev['role']}**  ·  `{ev['alias']}:{ev['model']}`{rnd}")
         st.markdown(ev.get("content", ""))
+        for img in ev.get("images", []):       # inline plots from skills (PyMOL, …)
+            if os.path.exists(img):
+                st.image(img, caption=os.path.basename(img))
 
 
 # persist the most recent discussion across reruns (also saved to History)
