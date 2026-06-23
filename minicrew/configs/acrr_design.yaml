@@ -1,0 +1,64 @@
+name: acrr_design
+project: AcrR steroid biosensor — testosterone>progesterone design session
+
+# Round-robin so each expert builds on the last; PI synthesizes; auto-curated.
+topology: round_robin
+rounds: 1
+
+task: >
+  Design the next testosterone-over-progesterone AcrR construct(s) for the wet-lab.
+  Build on what we know: L85I retains ~89% of WT testosterone signal while
+  suppressing progesterone (a selective AND bright lever), whereas I61L and E106L
+  gain the test/prog ratio mainly by denominator collapse and SACRIFICE absolute
+  testosterone (selective but dim). Computational selectivity prediction has failed
+  (P1 GP + #4 flex-ddG) — use flex-ddG only as a coarse dead-binder check and trust
+  the wet-lab.
+  Propose: (1) the specific mutation set(s) to build for round-1 (positions +
+  expected effect), (2) the controls + the ABSOLUTE-amplitude dose-response readout
+  that would distinguish real headroom from a dimming/dead sensor, (3) the single
+  most decisive experiment, and (4) the failure mode of each proposal. Be concrete;
+  request a tool (pose check / dead-binder ΔΔG / literature) when it would change
+  the design.
+
+# Budgeted, status-filtered, role-specific retrieval over the typed memory (P3) —
+# pulls our seeded decisions/claims/pitfalls + the singles-decomposition finding.
+context_pack: true
+# Curate the session into typed memory afterwards (P4d).
+auto_sediment: true
+
+knowledge:
+  - pitfalls
+  - decisions
+  - claims
+  - evidence
+  - literature
+
+# Skills the team may run mid-session (P1 Tool-Request protocol).
+tools:
+  - analyze_structure
+  - flexddg_score
+  - literature_search
+
+roles:
+  - name: Structural Biologist
+    model: claude_cli
+    persona_file: personas/structural_biologist.md
+    word_limit: 260
+  - name: Experiment Planner
+    model: claude_cli
+    persona_file: personas/experiment_planner.md
+    word_limit: 260
+  - name: Data Analyst
+    model: claude_cli
+    persona_file: personas/data_analyst.md
+    word_limit: 220
+  - name: Skeptic
+    model: claude_cli
+    persona_file: personas/skeptic.md
+    word_limit: 220
+
+synthesizer:
+  name: PI / Moderator
+  model: claude_cli
+  persona_file: personas/moderator.md
+  temperature: 0.3

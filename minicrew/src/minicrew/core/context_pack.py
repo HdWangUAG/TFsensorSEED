@@ -73,12 +73,15 @@ def build_pack(question, role=None, budget_chars=12000):
     sections, used, dropped = [], 0, []
     for rtype in _SECTION_ORDER:
         if rtype == "literature":
-            if focus.get("literature", 0) <= 0:
+            if focus.get("literature", 0) <= 0 or not question:
                 continue
-            lit = knowledge._literature_retrieved(question) if question else None
-            if not lit:
+            # knowledge.build degrades gracefully: semantic top-k when the vector
+            # DB is up, else whole-file injection of the curated notes.
+            lit = knowledge.build(["literature"], query=question)
+            if not lit.strip():
                 continue
-            block = lit
+            cap = 3200                              # keep the section bounded
+            block = lit[:cap] + (" …" if len(lit) > cap else "")
         else:
             recs = retrieved.get(rtype)
             if not recs:
