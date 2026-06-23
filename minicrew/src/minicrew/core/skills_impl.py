@@ -379,6 +379,110 @@ def flexddg_score(pdb_path, mutations, ligand="testosterone", seed="1"):
                           "not a selectivity verdict (see COMPUTATIONAL_BOUNDARY.md)"]}
 
 
+@skill("boltz_compare",
+       "Fold WT vs mutant holo complex with Boltz-2 and compare POCKET + BINDING: "
+       "returns each one's affinity_probability_binary (binding head), the holo DBD "
+       "spacing (Å), and a rendered mutant pocket. LONG-RUNNING (GPU, ~5-15 min for "
+       "two folds). Caveat: DL poses flip the steroid A-ring (~1/15 SAR-consistent) "
+       "and single-structure opening doesn't predict amplitude — treat as COARSE "
+       "structural evidence, not a binding/activation verdict (COMPUTATIONAL_BOUNDARY.md).",
+       {"type": "object",
+        "properties": {
+            "mutations": {"type": "array", "items": {"type": "string"},
+                          "description": "model-numbering mutations, e.g. ['I61L','L85I']"},
+            "ligand": {"type": "string",
+                       "description": "steroid in data/steroid_panel.csv (default testosterone)"},
+            "seed": {"type": "number", "description": "Boltz seed (default 1)"}},
+        "required": ["mutations"]},
+       requires={"max_runtime_seconds": 2400, "allow_network": True,
+                 "allow_write": True})   # boltz binary checked in-body (it's a venv exe)
+def boltz_compare(mutations, ligand="testosterone", seed=1):
+    import csv as _csv
+    from tfsensor import boltz_holo_inputs as bhi
+    from tfsensor.ml.bo.seed import parse_mutation
+    try:
+        from tfsensor.rescore_oriented import _dbd
+    except Exception:
+        _dbd = None
+    if not isinstance(mutations, list) or not mutations:
+        return {"error": "mutations must be a non-empty list, e.g. ['I61L']"}
+    boltz = config.get("TFSENSOR_BOLTZ_BIN", "")
+    if not boltz or not os.path.exists(boltz):
+        return {"error": f"Boltz binary not found ({boltz}); set TFSENSOR_BOLTZ_BIN"}
+    panel = os.path.join(config.REPO_ROOT, "data", "steroid_panel.csv")
+    smiles = {r["name"].strip(): r["smiles"].strip() for r in _csv.DictReader(open(panel))}
+    if ligand not in smiles:
+        return {"error": f"ligand {ligand!r} not in panel {sorted(smiles)}"}
+    seq = bhi._read_first_chain(os.path.join(config.REPO_ROOT, "data", "AcrR_dimer.fasta"))
+    # 'I61L' -> '61:L' for boltz_holo_inputs._apply_mutations
+    try:
+        muts_pa = [f"{parse_mutation(m)[1]}:{parse_mutation(m)[2]}" for m in mutations]
+    except Exception as exc:
+        return {"error": f"bad mutation token: {exc}"}
+
+    rid = run_id()
+    work = os.path.join(config.REPO_ROOT, "minicrew", "artifacts", rid, "boltz")
+    out = {}
+    for label, s in (("wt", seq), ("mut", bhi._apply_mutations(seq, muts_pa))):
+        ind = os.path.join(work, f"{label}_in")
+        os.makedirs(ind, exist_ok=True)
+        job = f"{label}_{ligand}"
+        bhi.build_holo_yaml(os.path.join(ind, f"{job}.yaml"), s, smiles[ligand])
+        odir = os.path.join(work, f"{label}_out")
+        cmd = [boltz, "predict", ind, "--out_dir", odir, "--seed", str(int(seed)),
+               "--diffusion_samples", "1", "--recycling_steps", "3", "--model", "boltz2",
+               "--output_format", "pdb", "--devices", "1", "--accelerator", "gpu",
+               "--use_msa_server"]
+        rs = run_subprocess(cmd, timeout=1200, cwd=config.REPO_ROOT)
+        import glob
+        pdbs = glob.glob(os.path.join(odir, "**", "predictions", job, f"{job}_model_0.pdb"),
+                         recursive=True)
+        affs = glob.glob(os.path.join(odir, "**", "predictions", job, f"affinity_{job}.json"),
+                         recursive=True)
+        rec = {"rc": rs["rc"]}
+        if pdbs:
+            rec["pdb"] = pdbs[0]
+            if _dbd:
+                try:
+                    rec["dbd_spacing_A"] = round(_dbd(pdbs[0]), 2)
+                except Exception:
+                    rec["dbd_spacing_A"] = None
+        if affs:
+            try:
+                rec["affinity_probability_binary"] = round(
+                    json.load(open(affs[0])).get("affinity_probability_binary"), 3)
+            except Exception:
+                pass
+        out[label] = rec
+        if label == "wt" and "pdb" not in rec:
+            return {"error": f"Boltz WT fold produced no model (rc={rs['rc']})",
+                    "stderr": rs["stderr_tail"][-400:]}
+
+    arts = []
+    mut_pdb = out.get("mut", {}).get("pdb")
+    if mut_pdb:
+        png = os.path.join(work, f"mut_{ligand}_pocket.png")
+        a = [config.get("MINICREW_PYMOL_BIN", os.path.expanduser("~/.conda/envs/pyrosetta/bin/pymol")),
+             "-cq", os.path.join(config.REPO_ROOT, "tfsensor", "pymol_analyze.py"),
+             "--", mut_pdb, "auto", "5.0", png]
+        run_subprocess(a, timeout=200)
+        if os.path.exists(png):
+            arts.append({"type": "image", "uri": png, "caption": f"{'+'.join(mutations)} holo pocket (Boltz)"})
+
+    wt, mut = out.get("wt", {}), out.get("mut", {})
+    return {"summary": f"Boltz WT vs {'+'.join(mutations)} ({ligand}): "
+            f"affinity {wt.get('affinity_probability_binary')}→{mut.get('affinity_probability_binary')}, "
+            f"DBD {wt.get('dbd_spacing_A')}→{mut.get('dbd_spacing_A')} Å",
+            "metrics": {"wt_affinity": wt.get("affinity_probability_binary"),
+                        "mut_affinity": mut.get("affinity_probability_binary"),
+                        "wt_dbd_A": wt.get("dbd_spacing_A"),
+                        "mut_dbd_A": mut.get("dbd_spacing_A"), "ligand": ligand},
+            "wt": wt, "mut": mut, "_artifacts": arts,
+            "_warnings": ["Boltz flips the steroid A-ring often (SAR-check the pose); "
+                          "single-structure DBD spacing ≠ activation amplitude; 1 "
+                          "diffusion sample — coarse structural evidence only"]}
+
+
 @skill("literature_search",
        "Search the web literature (Semantic Scholar or OpenAlex — open APIs, no "
        "key) for papers on a topic: returns title, authors, year, venue, DOI, "
