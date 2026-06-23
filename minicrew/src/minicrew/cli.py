@@ -203,8 +203,11 @@ def _cmd_supersede(args):
 
 def _cmd_skills(args):
     if args.write:
-        path = skills.write_catalog()
-        print(f"wrote skill catalog → {os.path.relpath(path, config.REPO_ROOT)}")
+        paths = skills.write_catalog()
+        print(f"wrote {len(paths)} catalog file(s) under "
+              f"{os.path.relpath(os.path.dirname(paths[0]), config.REPO_ROOT)}/:")
+        for p in paths:
+            print(f"  {os.path.relpath(p, config.REPO_ROOT)}")
         return
     print(f"{len(skills.SKILLS)} skills:")
     for n, s in skills.list_skills().items():

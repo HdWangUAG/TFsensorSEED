@@ -281,50 +281,105 @@ def openai_schemas(names=None):
     return [SKILLS[n].to_openai_schema() for n in names if n in SKILLS]
 
 
-def catalog_markdown():
-    """The skills/ catalog md — generated from the live registry (single source)."""
-    out = ["# MiniCrew skills", "",
-           "Runnable scientific capabilities. Each is defined in "
-           "`src/minicrew/core/skills_impl.py` (registered via `@skill`); the "
-           "standalone processing scripts they shell out to live in "
-           "`skills/scripts/`. Use them on the **🛠️ Skills** page, or let crew "
-           "agents request them via the tool-request protocol.", "",
-           "_Auto-generated from the registry — regenerate with "
-           "`minicrew skills --write`._", "",
-           f"**{len(SKILLS)} skills:** " + ", ".join(f"`{n}`" for n in sorted(SKILLS)),
-           ""]
-    for n in sorted(SKILLS):
-        s = SKILLS[n]
-        req = s.requires or {}
-        out += [f"## `{n}`", s.description]
-        badges = []
-        if req.get("conda_env"):
-            badges.append(f"conda env `{req['conda_env']}`")
-        if req.get("binaries"):
-            badges.append("binaries " + ", ".join(f"`{b}`" for b in req["binaries"]))
-        if req.get("allow_network"):
-            badges.append("network")
-        if req.get("max_runtime_seconds", 0) >= 600:
-            badges.append(f"⏳ long-running (≤{req['max_runtime_seconds']}s)")
-        if badges:
-            out.append("- **requires:** " + " · ".join(badges))
-        props = (s.parameters or {}).get("properties", {})
-        required = set((s.parameters or {}).get("required", []))
-        if props:
-            out.append("- **args:**")
-            for k, p in props.items():
-                tag = "required" if k in required else "optional"
-                out.append(f"  - `{k}` ({p.get('type', 'string')}, {tag})"
-                           + (f" — {p['description']}" if p.get("description") else ""))
-        out.append("")
+# Skills grouped by engine → one folder per group, each with a `<group>_skill.md`
+# doc + its processing scripts. (group: (title, [skill names]))
+SKILL_GROUPS = {
+    "pyrosetta": ("PyRosetta — flex-ddG energetics & mutation threading",
+                  ["flexddg_score", "retrodict"]),
+    "pymol": ("PyMOL — structural rendering & pocket analysis",
+              ["analyze_structure", "pocket_mutation_view"]),
+    "boltz": ("Boltz-2 — co-folding pose & binding", ["boltz_compare"]),
+    "cheminformatics": ("RDKit / ProLIF — ligand & interaction analysis",
+                        ["ligand_descriptors", "ligand_similarity",
+                         "interaction_fingerprint"]),
+    "ml": ("ML — predictive models", ["train_model"]),
+    "literature": ("Literature — web retrieval", ["literature_search"]),
+}
+
+
+def _skill_doc(n):
+    s = SKILLS[n]
+    req = s.requires or {}
+    out = [f"### `{n}`", s.description]
+    badges = []
+    if req.get("conda_env"):
+        badges.append(f"conda env `{req['conda_env']}`")
+    if req.get("binaries"):
+        badges.append("binaries " + ", ".join(f"`{b}`" for b in req["binaries"]))
+    if req.get("allow_network"):
+        badges.append("network")
+    if req.get("max_runtime_seconds", 0) >= 600:
+        badges.append(f"⏳ long-running (≤{req['max_runtime_seconds']}s)")
+    if badges:
+        out.append("- **requires:** " + " · ".join(badges))
+    props = (s.parameters or {}).get("properties", {})
+    required = set((s.parameters or {}).get("required", []))
+    if props:
+        out.append("- **args:**")
+        for k, p in props.items():
+            tag = "required" if k in required else "optional"
+            out.append(f"  - `{k}` ({p.get('type', 'string')}, {tag})"
+                       + (f" — {p['description']}" if p.get("description") else ""))
+    out.append("")
     return "\n".join(out)
 
 
-def write_catalog(path=None):
-    path = path or os.path.join(config.MINICREW_DIR, "skills", "README.md")
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    open(path, "w", encoding="utf-8").write(catalog_markdown())
-    return path
+def _group_md(group):
+    import glob as _glob
+    title, names = SKILL_GROUPS[group]
+    names = [n for n in names if n in SKILLS]
+    out = [f"# {group} skills", "", title, "",
+           "_Auto-generated (`minicrew skills --write`). Skills are defined in "
+           "`src/minicrew/core/skills_impl.py`; standalone processing scripts live "
+           "in this folder._", ""]
+    scripts = sorted(os.path.basename(p) for p in _glob.glob(
+        os.path.join(config.MINICREW_DIR, "skills", group, "*.py")))
+    if scripts:
+        out += ["**Processing scripts in this folder:** "
+                + ", ".join(f"`{s}`" for s in scripts), ""]
+    for n in names:
+        out.append(_skill_doc(n))
+    return "\n".join(out)
+
+
+def catalog_markdown():
+    """Top-level skills/ index — links to each per-engine group doc."""
+    lines = ["# MiniCrew skills", "",
+             f"{len(SKILLS)} runnable skills, grouped by engine. Each group has its "
+             "own folder with a `<group>_skill.md` doc + processing scripts. Skills "
+             "are defined in `src/minicrew/core/skills_impl.py` (`@skill`); run them "
+             "on the **🛠️ Skills** page or via the crew tool-request protocol.", "",
+             "_Regenerate: `minicrew skills --write`._", ""]
+    grouped = set()
+    for g, (title, names) in SKILL_GROUPS.items():
+        have = [n for n in names if n in SKILLS]
+        if not have:
+            continue
+        grouped.update(have)
+        lines.append(f"- **[`{g}/`]({g}/{g}_skill.md)** — {title}: "
+                     + ", ".join(f"`{n}`" for n in have))
+    ung = [n for n in sorted(SKILLS) if n not in grouped]
+    if ung:
+        lines.append("- **(ungrouped)**: " + ", ".join(f"`{n}`" for n in ung))
+    lines.append("")
+    return "\n".join(lines)
+
+
+def write_catalog(base=None):
+    """Write the top index + one <group>/<group>_skill.md per engine group."""
+    base = base or os.path.join(config.MINICREW_DIR, "skills")
+    os.makedirs(base, exist_ok=True)
+    written = [os.path.join(base, "README.md")]
+    open(written[0], "w", encoding="utf-8").write(catalog_markdown())
+    for g in SKILL_GROUPS:
+        if not [n for n in SKILL_GROUPS[g][1] if n in SKILLS]:
+            continue
+        d = os.path.join(base, g)
+        os.makedirs(d, exist_ok=True)
+        p = os.path.join(d, f"{g}_skill.md")
+        open(p, "w", encoding="utf-8").write(_group_md(g))
+        written.append(p)
+    return written
 
 
 def _now():

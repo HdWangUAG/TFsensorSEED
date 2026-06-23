@@ -17,7 +17,7 @@ from .skills import (skill, safe_input_path, run_subprocess, conda_python, run_i
 # project-specific processing scripts the skills shell out to (PyMOL / PyRosetta).
 # Pipeline modules reused as -m tfsensor.* (design_score, retrodict, boltz_holo_inputs)
 # stay in tfsensor/; these standalone skill scripts live with the skills.
-_SCRIPTS = os.path.join(config.MINICREW_DIR, "skills", "scripts")
+_SKILLS = os.path.join(config.MINICREW_DIR, "skills")
 
 # --- project-relevant ligands so an agent can pass a name instead of SMILES ---
 KNOWN_SMILES = {
@@ -218,7 +218,7 @@ def analyze_structure(pdb_path, ligand_resname=None, pocket_cutoff=5.0, render=T
                        os.path.expanduser("~/.conda/envs/pyrosetta/bin/pymol"))
     if not os.path.exists(pymol):
         return {"error": f"PyMOL not found at {pymol}; set MINICREW_PYMOL_BIN"}
-    script = os.path.join(_SCRIPTS, "pymol_analyze.py")
+    script = os.path.join(_SKILLS, "pymol", "pymol_analyze.py")
     out_png = ""
     if render:
         cache = os.path.join(config.REPO_ROOT, "data/ml/cache/pymol")
@@ -274,7 +274,7 @@ def pocket_mutation_view(pdb_path, mutations, ligand_resname=None):
 
     # 1) thread the mutation(s) with PyRosetta (headless PyMOL mutagenesis is broken)
     t = run_subprocess([conda_python("pyrosetta"),
-                        os.path.join(_SCRIPTS, "thread_mutant.py"),
+                        os.path.join(_SKILLS, "pyrosetta", "thread_mutant.py"),
                         abspath, ",".join(mutations), mut_pdb],
                        timeout=600, cwd=config.REPO_ROOT)
     if not os.path.exists(mut_pdb):
@@ -285,7 +285,7 @@ def pocket_mutation_view(pdb_path, mutations, ligand_resname=None):
             thread_info = json.loads(line.split("THREAD_JSON:", 1)[1])
 
     # 2) render WT + mutant pockets with the proven pymol_analyze script
-    script = os.path.join(_SCRIPTS, "pymol_analyze.py")
+    script = os.path.join(_SKILLS, "pymol", "pymol_analyze.py")
 
     def _render(pdb_in, png):
         a = [pymol, "-cq", script, "--", pdb_in, ligand_resname or "auto", "5.0", png]
@@ -468,7 +468,7 @@ def boltz_compare(mutations, ligand="testosterone", seed=1):
     if mut_pdb:
         png = os.path.join(work, f"mut_{ligand}_pocket.png")
         a = [config.get("MINICREW_PYMOL_BIN", os.path.expanduser("~/.conda/envs/pyrosetta/bin/pymol")),
-             "-cq", os.path.join(_SCRIPTS, "pymol_analyze.py"),
+             "-cq", os.path.join(_SKILLS, "pymol", "pymol_analyze.py"),
              "--", mut_pdb, "auto", "5.0", png]
         run_subprocess(a, timeout=200)
         if os.path.exists(png):
