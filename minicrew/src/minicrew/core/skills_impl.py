@@ -292,6 +292,87 @@ def flexddg_score(pdb_path, mutations, ligand="testosterone", seed="1"):
                           "not a selectivity verdict (see COMPUTATIONAL_BOUNDARY.md)"]}
 
 
+@skill("literature_search",
+       "Search the web literature (Semantic Scholar or OpenAlex — open APIs, no "
+       "key) for papers on a topic: returns title, authors, year, venue, DOI, "
+       "citation count, abstract, and URL. Use to find external evidence / "
+       "precedents; pair with `distill` to store a vetted note. Abstracts only "
+       "(not full text); verify claims against the source before trusting.",
+       {"type": "object",
+        "properties": {
+            "query": {"type": "string", "description": "search query (keywords/phrase)"},
+            "limit": {"type": "number", "description": "max papers (default 8)"},
+            "source": {"type": "string",
+                       "description": "openalex (default) | semantic_scholar"},
+            "year_from": {"type": "number", "description": "optional earliest year"}},
+        "required": ["query"]},
+       requires={"allow_network": True, "max_runtime_seconds": 60})
+def literature_search(query, limit=8, source="openalex", year_from=None):
+    limit = max(1, min(int(limit), 25))
+    # try the requested source, then fall back to the other (S2 rate-limits w/o a key)
+    order = [source] + [s for s in ("openalex", "semantic_scholar") if s != source]
+    errs = []
+    for src in order:
+        try:
+            papers = (_search_openalex if src == "openalex" else _search_s2)(query, limit, year_from)
+            return {"summary": f"{len(papers)} papers for {query!r} via {src}",
+                    "metrics": {"n": len(papers), "source": src},
+                    "query": query, "papers": papers,
+                    "_warnings": ([f"{source} failed, used {src}"] if src != source else [])}
+        except Exception as exc:
+            errs.append(f"{src}: {exc}")
+    return {"error": "literature search failed — " + " | ".join(errs)}
+
+
+def _search_openalex(query, limit, year_from):
+    import requests
+    params = {"search": query, "per-page": limit,
+              "select": "title,publication_year,authorships,doi,primary_location,"
+                        "cited_by_count,abstract_inverted_index"}
+    if year_from:
+        params["filter"] = f"from_publication_date:{int(year_from)}-01-01"
+    r = requests.get("https://api.openalex.org/works", params=params, timeout=45)
+    r.raise_for_status()
+    return [_openalex_paper(w) for w in r.json().get("results", [])]
+
+
+def _search_s2(query, limit, year_from):
+    import requests
+    params = {"query": query, "limit": limit,
+              "fields": "title,abstract,year,venue,citationCount,externalIds,url,authors.name"}
+    if year_from:
+        params["year"] = f"{int(year_from)}-"
+    r = requests.get("https://api.semanticscholar.org/graph/v1/paper/search",
+                     params=params, timeout=45)
+    r.raise_for_status()
+    return [_s2_paper(p) for p in r.json().get("data", [])]
+
+
+def _s2_paper(p):
+    ext = p.get("externalIds") or {}
+    return {"title": p.get("title"), "year": p.get("year"),
+            "authors": [a.get("name") for a in (p.get("authors") or [])][:6],
+            "venue": p.get("venue"), "doi": ext.get("DOI"),
+            "citations": p.get("citationCount"), "url": p.get("url"),
+            "abstract": (p.get("abstract") or "")[:1200]}
+
+
+def _openalex_paper(w):
+    abs_idx = w.get("abstract_inverted_index") or {}
+    abstract = ""
+    if abs_idx:
+        words = sorted(((pos, wd) for wd, ps in abs_idx.items() for pos in ps))
+        abstract = " ".join(wd for _, wd in words)[:1200]
+    loc = (w.get("primary_location") or {}).get("source") or {}
+    return {"title": w.get("title"), "year": w.get("publication_year"),
+            "authors": [a["author"]["display_name"]
+                        for a in (w.get("authorships") or [])][:6],
+            "venue": loc.get("display_name"),
+            "doi": (w.get("doi") or "").replace("https://doi.org/", "") or None,
+            "citations": w.get("cited_by_count"), "url": w.get("doi"),
+            "abstract": abstract}
+
+
 @skill("retrodict",
        "Run the orientation-corrected flex-ddG retrodiction benchmark "
        "(tfsensor.ml.bo.retrodict): scores WT + known singles on SAR-consistent "

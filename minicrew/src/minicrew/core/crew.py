@@ -249,8 +249,26 @@ def _indent(text):
 # ----------------------------------------------------------------------------
 # the run loop
 # ----------------------------------------------------------------------------
+def _auto_sediment(crew, run_id, on_event):
+    """Curate this run into typed memory right after it saves (the Memory-Curator
+    automation): extract claim/decision/pitfall records + a decisions note, so
+    memory accrues without a manual `minicrew sediment`."""
+    import json
+    from . import scribe
+    try:
+        rj = json.load(open(os.path.join(config.RUNS_DIR, run_id + ".json"),
+                            encoding="utf-8"))
+        spath, _ = scribe.sediment_record(rj, model=crew.get("scribe_model", "claude_cli"))
+        print(_c(f"[curated] → {os.path.relpath(spath, config.REPO_ROOT)} "
+                 f"(+ typed records)", _DIM))
+        _emit(on_event, type="curated", run_id=run_id, path=spath)
+    except Exception as exc:                       # never let curation break a run
+        print(_c(f"[curate skipped — {exc}]", _DIM))
+
+
 def run_crew(name, extra_files=None, rounds=None, topology=None,
-             dry_run=False, mock=False, out_path=None, on_event=None, task=None):
+             dry_run=False, mock=False, out_path=None, on_event=None, task=None,
+             sediment=False):
     crew = load_crew(name)
     if task:                       # override the crew's default task (e.g. escalation)
         crew["task"] = task
@@ -325,6 +343,8 @@ def run_crew(name, extra_files=None, rounds=None, topology=None,
     rec = logger.save_run(crew, topology, transcript, out_path)
     print(_c(f"\n[saved] conversations/{rec['run_id']}.md  +  runs/{rec['run_id']}.json", _DIM))
     _emit(on_event, type="done", run_id=rec["run_id"])
+    if (sediment or crew.get("auto_sediment")) and not mock:
+        _auto_sediment(crew, rec["run_id"], on_event)
     return transcript
 
 

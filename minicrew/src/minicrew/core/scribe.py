@@ -110,7 +110,14 @@ def extract_records(note_body, source_run):
 
 
 def write_records(records):
-    return [memory.write_record(r) for r in records]
+    """Write typed records; annotate each with `_dup` (an identical-content record
+    already existed — content-hash IDs dedup automatically). Returns paths."""
+    existing = {r.get("id") for r in memory.load_records()}
+    paths = []
+    for r in records:
+        r["_dup"] = r["id"] in existing
+        paths.append(memory.write_record(r))
+    return paths
 
 
 def _transcript_text(record):
@@ -148,7 +155,9 @@ def sediment_run(record, model="claude_cli", verify_model=None):
     write_records(records)
     rec_footer = ""
     if records:
-        rec_footer = ("\n## Typed records emitted ({})\n".format(len(records))
+        n_new = sum(1 for r in records if not r.get("_dup"))
+        rec_footer = ("\n## Typed records emitted ({}: {} new, {} updated/deduped)\n".format(
+                          len(records), n_new, len(records) - n_new)
                       + "\n".join(
                           f"- `{r['type']}` {r['id']} (status={r['status']}, "
                           f"confidence={r['confidence']}) → "

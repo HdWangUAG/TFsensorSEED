@@ -27,6 +27,7 @@ def _cmd_run(args):
         dry_run=args.dry_run,
         mock=args.mock,
         out_path=args.out,
+        sediment=args.sediment,
     )
 
 
@@ -249,6 +250,9 @@ def build_parser():
                    help="run the full pipeline with deterministic fake replies "
                         "(no keys, no tokens) — proves the wiring")
     r.add_argument("--out", "-o", default=None, help="transcript output path")
+    r.add_argument("--sediment", action="store_true",
+                   help="auto-curate the run into typed memory afterwards "
+                        "(extract claim/decision/pitfall records + a decisions note)")
     r.set_defaults(func=_cmd_run)
 
     d = sub.add_parser("distill", help="distil a paper's text into a "

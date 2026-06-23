@@ -1,0 +1,46 @@
+name: debate
+project: AcrR steroid biosensor — two-pass debate + judge (critical-thinking crew)
+
+# Round-robin so the Skeptic sees the Proponent's case before attacking it;
+# the Judge then synthesizes. This is the blueprint's constructive→skeptic→judge.
+topology: round_robin
+rounds: 1
+
+# The hypothesis under debate — override per run with --task or --file.
+task: >
+  Debate the hypothesis stated in the provided material. Proponent: make the
+  strongest evidence-based case FOR it. Skeptic: try to falsify it and name the
+  most likely artefact. Judge: deliver a calibrated verdict (supported /
+  unsupported / confidence) and the single decisive next experiment.
+
+# Use the budgeted, status-filtered, role-specific context pack (P3) over the
+# typed memory — the Skeptic automatically also sees superseded/low-confidence.
+context_pack: true
+
+knowledge:
+  - pitfalls
+  - decisions
+  - claims
+  - evidence
+
+# Optional: let either side run a real computation to back a point.
+tools:
+  - analyze_structure
+  - flexddg_score
+  - literature_search
+
+roles:
+  - name: Proponent
+    model: claude_cli
+    persona_file: personas/proponent.md
+    word_limit: 280
+  - name: Skeptic
+    model: claude_cli
+    persona_file: personas/skeptic.md
+    word_limit: 280
+
+synthesizer:
+  name: Judge
+  model: claude_cli
+  persona_file: personas/judge.md
+  temperature: 0.3
