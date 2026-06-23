@@ -291,9 +291,11 @@ def run_crew(name, extra_files=None, rounds=None, topology=None,
     for role in crew["roles"]:
         toolrun.assert_tool_routing(role, config.resolve_model(role["model"]))
     # per-run budget for heavy (GPU/long) skills — capped so one discussion can't
-    # launch unbounded folds (crew can override with `max_heavy_tools:`).
-    crew["_tool_budget"] = {"heavy_remaining": int(
-        crew.get("max_heavy_tools", toolrun.DEFAULT_HEAVY_BUDGET))}
+    # launch unbounded folds. Default from skills/skills.yaml; crew may override
+    # with `max_heavy_tools:`.
+    crew["_tool_budget"] = ({"heavy_remaining": int(crew["max_heavy_tools"])}
+                            if crew.get("max_heavy_tools") is not None
+                            else toolrun.default_budget())
 
     tag = "  [DRY RUN]" if dry_run else ("  [MOCK]" if mock else "")
     print(_c(f"\n=== MiniCrewAI: {crew['name']} ===", _BOLD))

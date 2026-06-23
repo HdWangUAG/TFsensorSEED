@@ -27,12 +27,68 @@ page keep working unchanged; the rich SkillResult is exposed via ``call()``.
 """
 from __future__ import annotations
 
+import contextvars
 import datetime
 import os
 import subprocess
+import threading
 import time
 
 from . import config
+
+# ---------------------------------------------------------------------------
+# Skill control (skills/skills.yaml) — timeouts, heavy budget, enable/disable
+# ---------------------------------------------------------------------------
+_CONFIG_PATH = os.path.join(config.MINICREW_DIR, "skills", "skills.yaml")
+
+
+def _load_config():
+    try:
+        import yaml
+        with open(_CONFIG_PATH) as fh:
+            cfg = yaml.safe_load(fh) or {}
+    except Exception:
+        cfg = {}
+    cfg.setdefault("defaults", {})
+    cfg.setdefault("skills", {})
+    d = cfg["defaults"]
+    d.setdefault("heavy_runtime_s", 600)
+    d.setdefault("heavy_budget", 4)
+    d.setdefault("grace_s", 20)
+    d.setdefault("inprocess_default_s", 120)
+    return cfg
+
+
+CONFIG = _load_config()
+# the timeout of the skill currently running — subprocess calls inherit it so a
+# skill's run_subprocess() without an explicit timeout uses its configured budget.
+_CURRENT_TIMEOUT = contextvars.ContextVar("skill_timeout", default=None)
+
+
+def skill_timeout(name, requires=None):
+    """Resolved wall-clock budget (s): skills.yaml > requires.max_runtime_seconds > default."""
+    sc = CONFIG["skills"].get(name) or {}
+    if sc.get("timeout_s"):
+        return int(sc["timeout_s"])
+    if requires and requires.get("max_runtime_seconds"):
+        return int(requires["max_runtime_seconds"])
+    return int(CONFIG["defaults"]["inprocess_default_s"])
+
+
+def skill_enabled(name):
+    return bool((CONFIG["skills"].get(name) or {}).get("enabled", True))
+
+
+def is_heavy(name):
+    s = SKILLS.get(name)
+    if not s:
+        return False
+    return skill_timeout(name, s.requires) >= CONFIG["defaults"]["heavy_runtime_s"]
+
+
+def heavy_budget():
+    return int(CONFIG["defaults"]["heavy_budget"])
+
 
 # ---------------------------------------------------------------------------
 # SkillResult helpers
@@ -127,11 +183,17 @@ def conda_python(env):
     return os.path.expanduser(f"~/.conda/envs/{env}/bin/python")
 
 
-def run_subprocess(cmd, *, timeout=180, cwd=None, env_extra=None, stderr_tail=4000):
+def run_subprocess(cmd, *, timeout=None, cwd=None, env_extra=None, stderr_tail=4000):
     """Run a command (list, never shell=True). Returns dict with rc/stdout/
-    stderr_tail/runtime. Raises nothing — callers wrap into SkillResult."""
+    stderr_tail/runtime. Raises nothing — callers wrap into SkillResult.
+
+    `timeout=None` inherits the running skill's configured budget (the single
+    source of truth) so a one-step skill needn't restate it; multi-step skills
+    pass explicit per-step sub-budgets."""
     if not isinstance(cmd, (list, tuple)):
         raise ValueError("cmd must be a list (shell=True is forbidden)")
+    if timeout is None:
+        timeout = _CURRENT_TIMEOUT.get() or 180
     env = dict(os.environ)
     if env_extra:
         env.update(env_extra)
@@ -195,6 +257,8 @@ class Skill:
 
     # -- run wrapper -------------------------------------------------------
     def run(self, **kwargs):
+        if not skill_enabled(self.name):
+            return make_result(self.name, ok=False, error="skill disabled in skills/skills.yaml")
         ok, err = self.validate_args(kwargs)
         if not ok:
             return make_result(self.name, ok=False, error=f"invalid args: {err}")
@@ -202,17 +266,38 @@ class Skill:
         if not ok:
             return make_result(self.name, ok=False, error=f"preflight failed: {err}")
         rid = run_id()
+        timeout = skill_timeout(self.name, self.requires)
+        grace = int(CONFIG["defaults"]["grace_s"])
         t0 = time.time()
-        try:
-            raw = self._impl(**kwargs)
-        except Exception as exc:                       # never leak a raw traceback
-            return make_result(self.name, ok=False, error=f"{type(exc).__name__}: {exc}",
-                               provenance={"skill_version": self.version, "run_id": rid,
-                                           "runtime_seconds": round(time.time() - t0, 2),
-                                           "timestamp": _now()})
-        prov = {"skill_version": self.version, "run_id": rid,
-                "runtime_seconds": round(time.time() - t0, 2), "timestamp": _now(),
-                "conda_env": (self.requires or {}).get("conda_env")}
+        # Run the impl with the skill's timeout in context (subprocess calls inherit
+        # it) AND under a wall-clock watchdog thread, so even an in-process skill
+        # (RDKit/XGBoost) can't hang the app past its budget.
+        _CURRENT_TIMEOUT.set(timeout)
+        ctx = contextvars.copy_context()
+        box = {}
+
+        def _worker():
+            try:
+                box["raw"] = self._impl(**kwargs)
+            except Exception as exc:
+                box["exc"] = exc
+
+        th = threading.Thread(target=lambda: ctx.run(_worker), daemon=True)
+        th.start()
+        th.join(timeout + grace)
+        prov0 = {"skill_version": self.version, "run_id": rid,
+                 "runtime_seconds": round(time.time() - t0, 2), "timestamp": _now(),
+                 "conda_env": (self.requires or {}).get("conda_env")}
+        if th.is_alive():                              # blew the wall budget
+            return make_result(self.name, ok=False,
+                               error=f"timed out after {timeout}s (wall budget)",
+                               provenance=prov0)
+        if "exc" in box:                               # never leak a raw traceback
+            exc = box["exc"]
+            return make_result(self.name, ok=False,
+                               error=f"{type(exc).__name__}: {exc}", provenance=prov0)
+        raw = box.get("raw")
+        prov = dict(prov0)
         if isinstance(raw, dict):
             prov.update(raw.pop("_provenance", {}) or {})
             stderr = raw.pop("_stderr_tail", "")
@@ -276,9 +361,11 @@ def list_skills():
 
 
 def openai_schemas(names=None):
-    """Tool list in OpenAI function-calling format (for toolcall.run)."""
+    """Tool list in OpenAI function-calling format (for toolcall.run). Disabled
+    skills are excluded so agents can't request them."""
     names = names or list(SKILLS)
-    return [SKILLS[n].to_openai_schema() for n in names if n in SKILLS]
+    return [SKILLS[n].to_openai_schema() for n in names
+            if n in SKILLS and skill_enabled(n)]
 
 
 # Skills grouped by engine → one folder per group, each with a `<group>_skill.md`

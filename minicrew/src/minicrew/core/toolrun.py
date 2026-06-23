@@ -39,15 +39,17 @@ ARTIFACTS_DIR = os.path.join(config.MINICREW_DIR, "artifacts")
 _FENCE = re.compile(r"```tool_request\s*\n(.*?)```", re.DOTALL | re.IGNORECASE)
 
 # heavy (GPU / long) skills are serialized (a GPU can't run two folds at once)
-# and capped per crew run by a budget.
-HEAVY_RUNTIME_S = 600
+# and capped per crew run by a budget — both controlled in skills/skills.yaml.
 _HEAVY_LOCK = threading.Lock()
-DEFAULT_HEAVY_BUDGET = 4
 
 
 def _is_heavy(name):
-    s = skills.SKILLS.get(name)
-    return bool(s and (s.requires or {}).get("max_runtime_seconds", 0) >= HEAVY_RUNTIME_S)
+    return skills.is_heavy(name)
+
+
+def default_budget():
+    """A fresh per-run heavy-tool budget dict (from skills.yaml defaults)."""
+    return {"heavy_remaining": skills.heavy_budget()}
 
 
 def parse_requests(text):
@@ -174,7 +176,7 @@ def tools_block(allowed_tools):
              "Available skills (with their args):"]
     for n in allowed_tools:
         s = skills.SKILLS.get(n)
-        if s:
+        if s and skills.skill_enabled(n):
             lines.append(f"\n- **{n}**: {s.description}")
             lines.append(_arg_spec(s))
     lines.append("\nRequest a tool only when a real computation would change your "

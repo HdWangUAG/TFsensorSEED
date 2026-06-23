@@ -1,0 +1,28 @@
+# Skill control — timeouts, heavy budget, enable/disable. Edit here (no code change).
+# Overrides each skill's in-code `requires`. Re-read on app restart.
+#
+#   timeout_s : hard wall-clock budget for the skill (the framework stops it past
+#               this + grace; for subprocess skills the child is killed at timeout_s).
+#   enabled   : set false to hide a skill from agents + the Skills page.
+defaults:
+  heavy_runtime_s: 600     # timeout_s >= this  -> "heavy" (budgeted + serialized on the GPU)
+  heavy_budget: 4          # max heavy-skill runs per crew discussion
+  grace_s: 20              # extra wall-clock grace before the framework hard-stops a skill
+  inprocess_default_s: 120 # fallback for any skill with no timeout_s / max_runtime_seconds
+
+skills:
+  # light, in-process (RDKit / ProLIF / XGBoost) — now bounded
+  ligand_descriptors:      {timeout_s: 30}
+  ligand_similarity:       {timeout_s: 30}
+  interaction_fingerprint: {timeout_s: 120}
+  train_model:             {timeout_s: 300}
+  # structural (PyMOL / PyRosetta subprocess)
+  analyze_structure:       {timeout_s: 200}
+  pocket_mutation_view:    {timeout_s: 1100}
+  # heavy compute
+  flexddg_score:           {timeout_s: 1800}
+  boltz_compare:           {timeout_s: 2700}
+  retrodict:               {timeout_s: 5400}
+  # web
+  literature_search:       {timeout_s: 90}
+  # to disable a skill:  retrodict: {enabled: false}

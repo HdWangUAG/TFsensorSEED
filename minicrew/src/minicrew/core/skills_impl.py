@@ -228,7 +228,7 @@ def analyze_structure(pdb_path, ligand_resname=None, pocket_cutoff=5.0, render=T
         out_png = os.path.join(art, f"{base}_{ligand_resname or 'auto'}.png")
     args = [pymol, "-cq", script, "--", abspath,
             ligand_resname or "auto", str(pocket_cutoff), out_png]
-    rs = run_subprocess(args, timeout=180)
+    rs = run_subprocess(args)
     for line in rs["stdout"].splitlines():
         if "PYMOL_JSON:" in line:
             out = json.loads(line.split("PYMOL_JSON:", 1)[1])
@@ -369,7 +369,7 @@ def flexddg_score(pdb_path, mutations, ligand="testosterone", seed="1"):
     cmd = [conda_python("pyrosetta"), "-m", "tfsensor.design_score", "worker",
            "--ligand", ligand, "--seed", str(seed), "--designs", lib,
            "--panel", panel, "--work_dir", wd, "--out_json", oj, "--holo_pdb", pose]
-    rs = run_subprocess(cmd, timeout=1800, cwd=config.REPO_ROOT,
+    rs = run_subprocess(cmd, cwd=config.REPO_ROOT,
                         env_extra={"PYTHONPATH": config.REPO_ROOT})
     if not os.path.exists(oj):
         return {"error": f"flex-ddG produced no output (rc={rs['rc']}, "
@@ -586,7 +586,7 @@ def retrodict(jobs=6):
     out = os.path.join(config.REPO_ROOT, "results", "stage4_bo", "retrodiction.json")
     cmd = [conda_python("pyrosetta"), "-m", "tfsensor.ml.bo.retrodict",
            "--jobs", str(int(jobs)), "--out_json", out]
-    rs = run_subprocess(cmd, timeout=5400, cwd=config.REPO_ROOT,
+    rs = run_subprocess(cmd, cwd=config.REPO_ROOT,
                         env_extra={"PYTHONPATH": config.REPO_ROOT})
     if not os.path.exists(out):
         return {"error": f"retrodict produced no output (rc={rs['rc']}, "
