@@ -24,8 +24,11 @@ from . import config
 
 TYPE_DIR = {"claim": "claims", "evidence": "evidence",
             "decision": "decisions", "pitfall": "pitfalls"}
-STATUS = {"open", "supported", "refuted", "mixed", "superseded",
+STATUS = {"candidate", "open", "supported", "refuted", "mixed", "superseded",
           "active", "rejected", "expired"}
+# statuses NOT recalled by default (tool output is candidate until promoted/vetted;
+# reversed/rejected/expired stay out of the live context). See kdb._filter.
+INACTIVE_STATUS = {"candidate", "superseded", "rejected", "expired"}
 CONFIDENCE = {"low", "medium", "high"}
 CONF_RANK = {"low": 0, "medium": 1, "high": 2}
 RELATION = {"supports", "weakly_supports", "refutes", "mixed",

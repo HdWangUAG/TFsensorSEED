@@ -224,7 +224,8 @@ def _maybe_run_tools(crew, role, text, transcript, on_event, rnd):
         return None
     allowed = role.get("tools") or crew_tools     # role may narrow the crew allow-list
     allowed = [t for t in allowed if t in crew_tools]
-    results = toolrun.execute(reqs, allowed, requested_by=role["name"], on_event=on_event)
+    results = toolrun.execute(reqs, allowed, requested_by=role["name"],
+                              on_event=on_event, budget=crew.get("_tool_budget"))
     body = "\n\n".join(r["compact"] for r in results)
     images = [a["uri"] for r in results for a in (r.get("artifacts") or [])
               if a.get("type") == "image" and a.get("uri")]
@@ -289,6 +290,10 @@ def run_crew(name, extra_files=None, rounds=None, topology=None,
     # if its provider supports it; claude_cli etc. use the Tool-Request protocol.
     for role in crew["roles"]:
         toolrun.assert_tool_routing(role, config.resolve_model(role["model"]))
+    # per-run budget for heavy (GPU/long) skills — capped so one discussion can't
+    # launch unbounded folds (crew can override with `max_heavy_tools:`).
+    crew["_tool_budget"] = {"heavy_remaining": int(
+        crew.get("max_heavy_tools", toolrun.DEFAULT_HEAVY_BUDGET))}
 
     tag = "  [DRY RUN]" if dry_run else ("  [MOCK]" if mock else "")
     print(_c(f"\n=== MiniCrewAI: {crew['name']} ===", _BOLD))

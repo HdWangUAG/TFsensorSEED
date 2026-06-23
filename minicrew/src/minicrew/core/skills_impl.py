@@ -219,20 +219,21 @@ def analyze_structure(pdb_path, ligand_resname=None, pocket_cutoff=5.0, render=T
     if not os.path.exists(pymol):
         return {"error": f"PyMOL not found at {pymol}; set MINICREW_PYMOL_BIN"}
     script = os.path.join(_SKILLS, "pymol", "pymol_analyze.py")
+    rid = run_id()
     out_png = ""
     if render:
-        cache = os.path.join(config.REPO_ROOT, "data/ml/cache/pymol")
-        os.makedirs(cache, exist_ok=True)
+        art = os.path.join(config.MINICREW_DIR, "artifacts", rid)   # per-run; no overwrite
+        os.makedirs(art, exist_ok=True)
         base = os.path.splitext(os.path.basename(abspath))[0]
-        out_png = os.path.join(cache, f"{base}_{ligand_resname or 'auto'}.png")
+        out_png = os.path.join(art, f"{base}_{ligand_resname or 'auto'}.png")
     args = [pymol, "-cq", script, "--", abspath,
             ligand_resname or "auto", str(pocket_cutoff), out_png]
     rs = run_subprocess(args, timeout=180)
     for line in rs["stdout"].splitlines():
         if "PYMOL_JSON:" in line:
             out = json.loads(line.split("PYMOL_JSON:", 1)[1])
-            out["_provenance"] = {"command": " ".join(args), "binary": pymol,
-                                  "input_files": [abspath],
+            out["_provenance"] = {"run_id": rid, "command": " ".join(args),
+                                  "binary": pymol, "input_files": [abspath],
                                   "output_files": [out_png] if out_png else []}
             return out
     return {"error": "no PyMOL output", "stderr": rs["stderr_tail"][-300:]}
@@ -266,11 +267,12 @@ def pocket_mutation_view(pdb_path, mutations, ligand_resname=None):
                        os.path.expanduser("~/.conda/envs/pyrosetta/bin/pymol"))
     if not os.path.exists(pymol):
         return {"error": f"PyMOL not found at {pymol}; set MINICREW_PYMOL_BIN"}
-    cache = os.path.join(config.REPO_ROOT, "data/ml/cache/pymol")
-    os.makedirs(cache, exist_ok=True)
+    rid = run_id()
+    art = os.path.join(config.MINICREW_DIR, "artifacts", rid)   # per-run; no overwrite
+    os.makedirs(art, exist_ok=True)
     base = os.path.splitext(os.path.basename(abspath))[0]
     tag = "_".join(mutations)
-    mut_pdb = os.path.join(cache, f"{base}_{tag}.pdb")
+    mut_pdb = os.path.join(art, f"{base}_{tag}.pdb")
 
     # 1) thread the mutation(s) with PyRosetta (headless PyMOL mutagenesis is broken)
     t = run_subprocess([conda_python("pyrosetta"),
@@ -295,8 +297,8 @@ def pocket_mutation_view(pdb_path, mutations, ligand_resname=None):
                 return json.loads(line.split("PYMOL_JSON:", 1)[1])
         return {"error": "no PyMOL output", "stderr": rs["stderr_tail"][-200:]}
 
-    wt_png = os.path.join(cache, f"{base}_wt.png")
-    mut_png = os.path.join(cache, f"{base}_{tag}_mut.png")
+    wt_png = os.path.join(art, f"{base}_wt.png")
+    mut_png = os.path.join(art, f"{base}_{tag}_mut.png")
     wt = _render(abspath, wt_png)
     mut = _render(mut_pdb, mut_png)
 
@@ -319,7 +321,8 @@ def pocket_mutation_view(pdb_path, mutations, ligand_resname=None):
             "_artifacts": [{"type": "image", "uri": wt_png, "caption": "WT pocket"},
                            {"type": "image", "uri": mut_png,
                             "caption": "+".join(mutations) + " pocket"}],
-            "_provenance": {"input_files": [abspath], "output_files": [mut_pdb, wt_png, mut_png]},
+            "_provenance": {"run_id": rid, "input_files": [abspath],
+                            "output_files": [mut_pdb, wt_png, mut_png]},
             "_warnings": (["WT-identity mismatch: " + "; ".join(mism)] if mism else [])
             + ["mutant side-chains placed by PyRosetta MutateResidue (rotamer, not "
                "full repack/minimise) — shows placement, not the relaxed pose"]}

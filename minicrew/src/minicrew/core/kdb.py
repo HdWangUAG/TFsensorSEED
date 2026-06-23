@@ -34,10 +34,17 @@ def _filter(records, tags=None, confidence_min=None, status=None,
     out = []
     cmin = memory.CONF_RANK.get(confidence_min, -1) if confidence_min else -1
     for r in records:
-        if not include_superseded and r.get("status") == "superseded":
-            continue
-        if status and r.get("status") != status:
-            continue
+        st = r.get("status")
+        if status is not None:
+            if st != status:               # explicit status query (e.g. candidates)
+                continue
+        else:
+            # default: only ACTIVE — hide candidate/superseded/rejected/expired
+            # (tool evidence is candidate until vetted). Skeptic passes
+            # include_superseded to also see reversals.
+            hidden = memory.INACTIVE_STATUS - ({"superseded"} if include_superseded else set())
+            if st in hidden:
+                continue
         if cmin >= 0 and memory.CONF_RANK.get(r.get("confidence", "medium"), 1) < cmin:
             continue
         if tags and not (set(t.lower() for t in tags) & set(

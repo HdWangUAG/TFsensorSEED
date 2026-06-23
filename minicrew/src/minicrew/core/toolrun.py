@@ -29,6 +29,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import threading
 
 import yaml
 
@@ -36,6 +37,17 @@ from . import config, skills
 
 ARTIFACTS_DIR = os.path.join(config.MINICREW_DIR, "artifacts")
 _FENCE = re.compile(r"```tool_request\s*\n(.*?)```", re.DOTALL | re.IGNORECASE)
+
+# heavy (GPU / long) skills are serialized (a GPU can't run two folds at once)
+# and capped per crew run by a budget.
+HEAVY_RUNTIME_S = 600
+_HEAVY_LOCK = threading.Lock()
+DEFAULT_HEAVY_BUDGET = 4
+
+
+def _is_heavy(name):
+    s = skills.SKILLS.get(name)
+    return bool(s and (s.requires or {}).get("max_runtime_seconds", 0) >= HEAVY_RUNTIME_S)
 
 
 def parse_requests(text):
@@ -58,6 +70,7 @@ def _write_evidence(run_dir, res, req, requested_by):
     prov = res.get("provenance") or {}
     fm = [
         "---", "type: evidence", "source_type: computational_tool",
+        "status: candidate  # tool output — NOT recalled by default until promoted to active",
         f"skill: {res['skill']}", f"ok: {res['ok']}",
         f"run_id: {prov.get('run_id', '')}", f"requested_by: {requested_by}",
         f"runtime_seconds: {prov.get('runtime_seconds', '')}",
@@ -77,29 +90,51 @@ def _write_evidence(run_dir, res, req, requested_by):
     return path
 
 
-def execute(requests, allowed_tools, requested_by="agent", on_event=None):
-    """Run each request (allow-list enforced). Returns list of dicts:
-    {skill, ok, compact, result_path, evidence_path, denied}."""
+def _deny(name, msg, on_event):
+    comp = f"[skill {name} | DENIED] {msg}"
+    if on_event:
+        on_event({"type": "tool", "skill": name, "ok": False, "denied": True, "compact": comp})
+    return {"skill": name, "ok": False, "compact": comp, "result_path": None,
+            "evidence_path": None, "denied": True, "artifacts": []}
+
+
+def execute(requests, allowed_tools, requested_by="agent", on_event=None, budget=None):
+    """Run each request with STRICT gating: well-formedness → allow-list → heavy
+    budget → (args-validation + preflight + path-safety happen inside skills.call).
+    Heavy/GPU skills are serialized via _HEAVY_LOCK. `budget` is a mutable dict
+    {'heavy_remaining': N} tracked across the whole crew run."""
     out = []
     for req in requests:
-        name, args = req["skill"], req.get("args", {})
-        if allowed_tools is not None and name not in allowed_tools:
-            comp = (f"[skill {name} | DENIED] not in this crew's allow-list "
-                    f"{sorted(allowed_tools)}")
-            out.append({"skill": name, "ok": False, "compact": comp,
-                        "result_path": None, "evidence_path": None, "denied": True})
-            if on_event:
-                on_event({"type": "tool", "skill": name, "ok": False, "denied": True,
-                          "compact": comp})
+        name, args = req.get("skill"), req.get("args", {})
+        if not isinstance(name, str) or not name or not isinstance(args, dict):
+            out.append(_deny(str(name), "malformed request (need skill:str + args:dict)", on_event))
             continue
-        res = skills.call(name, **args)
+        if allowed_tools is not None and name not in allowed_tools:
+            out.append(_deny(name, f"not in this crew's allow-list {sorted(allowed_tools)}", on_event))
+            continue
+        if name not in skills.SKILLS:
+            out.append(_deny(name, "unknown skill", on_event))
+            continue
+        heavy = _is_heavy(name)
+        if heavy and budget is not None and budget.get("heavy_remaining", 0) <= 0:
+            out.append(_deny(name, "heavy-tool budget exhausted for this run", on_event))
+            continue
+        # args validation + preflight + path safety are enforced inside skills.call;
+        # heavy/GPU skills are serialized so a GPU isn't oversubscribed.
+        if heavy:
+            if budget is not None:
+                budget["heavy_remaining"] = budget.get("heavy_remaining", 0) - 1
+            with _HEAVY_LOCK:
+                res = skills.call(name, **args)
+        else:
+            res = skills.call(name, **args)
         rid = (res.get("provenance") or {}).get("run_id") or skills.run_id()
-        run_dir = os.path.join(ARTIFACTS_DIR, rid)
+        run_dir = os.path.join(ARTIFACTS_DIR, rid)   # per tool-run; never overwrites
         os.makedirs(run_dir, exist_ok=True)
         rp = os.path.join(run_dir, "result.json")
         json.dump(res, open(rp, "w"), indent=2, default=str)
         ev = _write_evidence(run_dir, res, req, requested_by)
-        comp = skills.compact(res)
+        comp = skills.compact(res)                   # digest only — full result in rp
         out.append({"skill": name, "ok": res["ok"], "compact": comp,
                     "result_path": rp, "evidence_path": ev, "denied": False,
                     "artifacts": res.get("artifacts", [])})
