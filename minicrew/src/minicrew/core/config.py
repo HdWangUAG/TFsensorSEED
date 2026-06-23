@@ -156,6 +156,9 @@ KNOWLEDGE_SOURCES = {
     "pitfalls":      [os.path.join(KNOWLEDGE_DIR, "pitfalls"),
                       os.path.join(REPO_ROOT, "docs", "agent_memory")],
     "engineering":   [os.path.join(KNOWLEDGE_DIR, "engineering")],
+    # typed records (memory.py): extracted claims + computational/literature evidence
+    "claims":        [os.path.join(KNOWLEDGE_DIR, "claims")],
+    "evidence":      [os.path.join(KNOWLEDGE_DIR, "evidence")],
 }
 # How much each source should sway an agent. Stated verbatim in the prompt.
 KNOWLEDGE_TRUST = {
@@ -165,9 +168,13 @@ KNOWLEDGE_TRUST = {
     "decisions":     "MEDIUM — prior decisions/findings from earlier discussions; revisit if new data conflicts",
     "pitfalls":      "HARD CONSTRAINT — known mistakes; do not repeat or re-propose these",
     "engineering":   "MEDIUM — execution-level know-how / gotchas sedimented from 1:1 chats; tactical, verify before relying",
+    "claims":        "MEDIUM — extracted claims; weigh by status (open/supported/refuted/mixed) + linked evidence",
+    "evidence":      "MEDIUM — computational/literature evidence items; weigh by relation + source_type (coarse compute ≠ ground truth)",
 }
 DECISIONS_DIR = os.path.join(KNOWLEDGE_DIR, "decisions")
 ENGINEERING_DIR = os.path.join(KNOWLEDGE_DIR, "engineering")
+CLAIMS_DIR = os.path.join(KNOWLEDGE_DIR, "claims")
+EVIDENCE_DIR = os.path.join(KNOWLEDGE_DIR, "evidence")
 
 # --- literature index (Phase 2): Mongo full text + Qdrant vectors ------------
 # These INDEX the .md notes (source-of-truth) for semantic retrieval; see

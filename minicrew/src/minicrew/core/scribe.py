@@ -13,8 +13,9 @@ from __future__ import annotations
 
 import datetime as _dt
 import os
+import re
 
-from . import config, llm
+from . import config, llm, memory
 
 _SCRIBE_SYS = """\
 You are the project scribe. From the discussion transcript, extract the DURABLE
@@ -22,10 +23,10 @@ knowledge worth carrying into future discussions — grounded ONLY in the
 transcript; never invent. Output Markdown with exactly these sections:
 
 ## Consensus / findings
-- <points the experts agreed on, with the specifics>
+- [CONFIDENCE] <point the experts agreed on, with the specifics>
 
 ## Decisions
-- <decision> — owner: <role> — next step: <concrete action>
+- [CONFIDENCE] <decision> — owner: <role> — next step: <concrete action>
 
 ## Open questions
 - <what remains unresolved / needs a human or an experiment>
@@ -33,7 +34,83 @@ transcript; never invent. Output Markdown with exactly these sections:
 ## Candidate pitfalls (for human review — not yet a hard rule)
 - <a "do not repeat" lesson surfaced here, if any>
 
-Be concise and concrete. If a section has nothing, write "- (none)"."""
+Prefix each Consensus and Decision bullet with a confidence tag in brackets —
+one of [HIGH] [MEDIUM] [LOW] [ASSUMPTION]. Be concise and concrete. If a section
+has nothing, write "- (none)"."""
+
+
+# map a scribe-note section heading → typed record type + default fields
+_SECTION_TYPE = {
+    "consensus": ("claim", {"status": "open"}),
+    "findings": ("claim", {"status": "open"}),
+    "decisions": ("decision", {"status": "active"}),
+    "candidate pitfalls": ("pitfall", {"status": "active", "severity": "medium"}),
+    "open questions": (None, {}),     # not a durable record
+}
+_CONF_TAG = re.compile(r"^\s*\[(HIGH|MEDIUM|LOW|ASSUMPTION)\]\s*", re.IGNORECASE)
+
+
+def _bullets(section_body):
+    out = []
+    for ln in section_body.splitlines():
+        m = re.match(r"\s*[-*]\s+(.*)", ln)
+        if m:
+            txt = m.group(1).strip()
+            if txt and txt.lower() not in ("(none)", "none"):
+                out.append(txt)
+    return out
+
+
+def _confidence(text):
+    """Pull a leading [HIGH|MEDIUM|LOW|ASSUMPTION] tag → (confidence, epistemic, clean_text)."""
+    m = _CONF_TAG.match(text)
+    if not m:
+        return None, None, text
+    tag = m.group(1).lower()
+    clean = _CONF_TAG.sub("", text)
+    if tag == "assumption":
+        return "low", "assumption", clean
+    return tag, None, clean
+
+
+def extract_records(note_body, source_run):
+    """Parse a scribe note into typed records (claim/decision/pitfall) — the
+    reviewer's "emit typed records, not every-bullet-a-claim". Deterministic
+    (no LLM): each section's bullets become records of that section's type."""
+    sections = re.split(r"^##\s+", note_body, flags=re.MULTILINE)
+    records = []
+    for sec in sections:
+        head, _, rest = sec.partition("\n")
+        key = head.strip().lower().split("(")[0].strip()
+        rtype, defaults = None, {}
+        for k, (rt, dft) in _SECTION_TYPE.items():
+            if k in key:
+                rtype, defaults = rt, dft
+                break
+        if not rtype:
+            continue
+        for raw in _bullets(rest):
+            conf, epi, text = _confidence(raw)
+            owner = next_step = None
+            if rtype == "decision":
+                m = re.search(r"—\s*owner:\s*(.*?)\s*(?:—\s*next step:\s*(.*))?$", text)
+                if m:
+                    owner = (m.group(1) or "").strip() or None
+                    next_step = (m.group(2) or "").strip() or None
+                    text = text.split("—")[0].strip()
+            rec = memory.make_record(
+                rtype, text, source_run=source_run,
+                confidence=conf or defaults.get("confidence", "medium"),
+                status=defaults.get("status"),
+                owner=owner, next_step=next_step,
+                severity=defaults.get("severity") if rtype == "pitfall" else None,
+                epistemic_status=epi)
+            records.append(rec)
+    return records
+
+
+def write_records(records):
+    return [memory.write_record(r) for r in records]
 
 
 def _transcript_text(record):
@@ -66,13 +143,25 @@ def sediment_run(record, model="claude_cli", verify_model=None):
                           f"{counts['SUPPORTED']}✓ / {counts['UNSUPPORTED']}⚠ / "
                           f"{counts['CONTRADICTED']}✗ vs project evidence)\n{vtext}\n")
 
+    # typed records (claim/decision/pitfall) — the queryable, traceable memory
+    records = extract_records(body, run_id)
+    write_records(records)
+    rec_footer = ""
+    if records:
+        rec_footer = ("\n## Typed records emitted ({})\n".format(len(records))
+                      + "\n".join(
+                          f"- `{r['type']}` {r['id']} (status={r['status']}, "
+                          f"confidence={r['confidence']}) → "
+                          f"knowledge/{memory.TYPE_DIR[r['type']]}/{r['id']}.md"
+                          for r in records) + "\n")
+
     ts = _dt.datetime.now().strftime("%Y%m%d_%H%M%S")
     os.makedirs(config.DECISIONS_DIR, exist_ok=True)
     fm = (f"---\ntitle: Decisions — {crew}\ntype: decisions\n"
           f"source_run: {run_id}\ncrew: {crew}\ndate: {ts}\ntrust: MEDIUM\n"
           + (f"verified_by: {verified}\n" if verified else "") + "---\n\n")
     note = (fm + f"_Sedimented from discussion run `{run_id}`._\n\n"
-            f"{body.strip()}\n{verify_section}")
+            f"{body.strip()}\n{verify_section}{rec_footer}")
     path = os.path.join(config.DECISIONS_DIR, f"{ts}_{crew}_decisions.md")
     with open(path, "w", encoding="utf-8") as fh:
         fh.write(note)

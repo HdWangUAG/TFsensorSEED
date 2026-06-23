@@ -14,7 +14,8 @@ import shutil
 import subprocess
 import sys
 
-from .core import config, crew, distill, embed, litdb, scribe, toolcall, vision
+from .core import (config, crew, distill, embed, kdb, litdb, memory, scribe,
+                   toolcall, vision)
 
 
 def _cmd_run(args):
@@ -129,12 +130,15 @@ def _cmd_sediment(args):
 def _cmd_index(_args):
     ok, msg = litdb.status()
     if not ok:
-        print(f"error: literature DB not reachable ({msg})\n"
-              "start it with: cd minicrew && docker compose up -d", file=sys.stderr)
+        print(f"error: vector DB not reachable ({msg})\n"
+              "start it with: cd minicrew && docker compose up -d\n"
+              "(recall still works without it — keyword+metadata over the records.)",
+              file=sys.stderr)
         return
     n = litdb.index_all()
-    print(f"indexed {n} literature note(s) with {embed.info()} → "
-          f"Qdrant '{config.QDRANT_COLLECTION}' + Mongo ({msg})")
+    m = kdb.index_all()           # typed records (claims/evidence/decisions/pitfalls)
+    print(f"indexed {n} literature note(s) + {m} typed record(s) with {embed.info()} "
+          f"→ Qdrant + Mongo ({msg})")
 
 
 def _cmd_search(args):
@@ -164,6 +168,36 @@ def _cmd_search(args):
         mean = sum(scores) / len(scores)
         print(f"\nsimilarity: min={min(scores):.3f} max={max(scores):.3f} "
               f"mean={mean:.3f}  ·  embedder {embed.info()}")
+
+
+def _cmd_recall(args):
+    hits = kdb.search(args.query, types=args.type or None, tags=args.tag or None,
+                      confidence_min=args.confidence,
+                      include_superseded=args.include_superseded, top_k=args.k)
+    if not hits:
+        print("no matching records")
+        return
+    mode = "semantic (vector DB)" if kdb.db_available() else "keyword+metadata (DB down)"
+    print(f"— recall [{mode}] —")
+    for r in hits:
+        extra = ""
+        if r.get("superseded_by"):
+            extra = f" ⤳ superseded_by {r['superseded_by']}"
+        if r.get("relation"):
+            extra += f" relation={r['relation']}"
+        print(f"\n[{r['type']}] {r['id']}  (status={r.get('status')}, "
+              f"confidence={r.get('confidence')}){extra}")
+        if r.get("tags"):
+            print("   tags: " + ", ".join(map(str, r["tags"])))
+        print("   " + (r.get("text", "") or "")[:240])
+
+
+def _cmd_supersede(args):
+    path = memory.supersede(args.old_id, new_id=args.by, note=args.note)
+    print(f"marked {args.old_id} superseded"
+          + (f" by {args.by}" if args.by else "")
+          + f" → {os.path.relpath(path, config.REPO_ROOT)}")
+    print("default recall now hides it (use --include-superseded to see it).")
 
 
 def _cmd_list(_args):
@@ -258,8 +292,29 @@ def build_parser():
                           "(optional model alias; default openai)")
     sed.set_defaults(func=_cmd_sediment)
 
-    sub.add_parser("index", help="(re)index literature notes into Mongo + Qdrant"
-                   ).set_defaults(func=_cmd_index)
+    sub.add_parser("index", help="(re)index literature notes + typed records into "
+                   "Mongo + Qdrant").set_defaults(func=_cmd_index)
+
+    rc = sub.add_parser("recall", help="retrieve typed records (claim/evidence/"
+                        "decision/pitfall) by query + filters")
+    rc.add_argument("query", nargs="?", default="", help="natural-language query")
+    rc.add_argument("--type", action="append", default=[],
+                    choices=["claim", "evidence", "decision", "pitfall"],
+                    help="restrict to record type(s) (repeatable)")
+    rc.add_argument("--tag", action="append", default=[], help="filter by tag (repeatable)")
+    rc.add_argument("--confidence", default=None, choices=["low", "medium", "high"],
+                    help="minimum confidence")
+    rc.add_argument("--include-superseded", action="store_true",
+                    help="include superseded records (hidden by default)")
+    rc.add_argument("-k", type=int, default=10, help="number of results")
+    rc.set_defaults(func=_cmd_recall)
+
+    sp = sub.add_parser("supersede", help="mark a decision/record superseded "
+                        "(link → the record that replaces it)")
+    sp.add_argument("old_id", help="record id to retire (e.g. dec_1a2b3c4d)")
+    sp.add_argument("--by", default=None, help="id of the replacing record")
+    sp.add_argument("--note", default=None, help="why it was superseded")
+    sp.set_defaults(func=_cmd_supersede)
 
     s = sub.add_parser("search", help="semantic-search the literature index")
     s.add_argument("query", help="natural-language query")
