@@ -1,5 +1,8 @@
 # Running MiniCrew on another server (fresh setup)
 
+> New here? Read [`HANDOVER.md`](HANDOVER.md) first for the mental model, then use
+> this page to install. [`README.md`](README.md) is the day-to-day command cheat-sheet.
+
 The repo holds all code, configs, prompts, and knowledge notes. Three things are
 gitignored and must be recreated on the new machine: **`.env`** (keys),
 **`minicrew/.venv`** (Python env), **`minicrew/.data`** (the DB volumes — rebuilt
@@ -17,7 +20,7 @@ from the `.md` notes).
 ## 1. Clone
 ```bash
 git clone https://github.com/HdWangUAG/TFsensorSEED.git
-cd TFsensorSEED && git checkout node-aspartate
+cd TFsensorSEED        # work on `master` unless you were told otherwise
 ```
 
 ## 2. Keys — create `.env`
@@ -38,8 +41,9 @@ MINICREW_EMBED_BACKEND=specter2         # local SPECTER2 (no key); = openai need
 ## 3. Python env (`minicrew/.venv`)
 ```bash
 python3 -m venv minicrew/.venv
-# install torch FIRST from the DEFAULT PyPI index (CUDA wheel; the CPU-index
-# 2.6/2.7 wheels are broken on the aspartate node — a clean server may not need this):
+# Only needed if you use the local SPECTER2/ST embedding backends. Install torch
+# FIRST from the DEFAULT PyPI index (CUDA wheel); some older CPU-index wheels are
+# broken on certain GPU nodes — a clean server usually doesn't need this line:
 minicrew/.venv/bin/pip install torch
 minicrew/.venv/bin/pip install -r minicrew/requirements.txt
 ```

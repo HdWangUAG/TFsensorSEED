@@ -151,11 +151,12 @@ Default behavior:
 This is a guard against unbounded context growth from large project files,
 knowledge notes, literature, and prior discussion content.
 
+A budget abort prints a readable `error:` and the CLI exits nonzero.
+
 Known gap:
 
 - prompt budgeting currently applies to real/mock runs, but dry-run prompt
   preview should also be made budget-aware.
-- the CLI should return a nonzero exit code when prompt budgeting aborts a run.
 
 ## Tool And Skill Layer
 
@@ -245,13 +246,14 @@ MiniCrew's long-term memory is markdown-based and lives under
 
 Important categories:
 
-- `literature/`: distilled paper notes.
-- `experimental/`: wet-lab or high-trust experimental facts.
-- `computational/`: computational method notes and boundaries.
-- `claims/`: typed scientific claims.
-- `evidence/`: typed evidence records.
-- `decisions/`: project decisions and moderator conclusions.
-- `pitfalls/`: recurring constraints, caveats, and failure modes.
+- `literature/`: distilled paper notes (HIGH trust).
+- `experimental/`: wet-lab or high-trust experimental facts (HIGH trust).
+- `computational/`: computational method notes and boundaries (MEDIUM).
+- `engineering/`: tactical know-how / gotchas sedimented from 1:1 chats (MEDIUM).
+- `claims/`: typed scientific claims (MEDIUM).
+- `evidence/`: typed evidence records (MEDIUM).
+- `decisions/`: project decisions and moderator conclusions (MEDIUM).
+- `pitfalls/`: recurring constraints, caveats, and failure modes (HARD CONSTRAINT).
 
 Core modules:
 
@@ -276,10 +278,14 @@ supersession_note: ...
 
 Memory lifecycle is important:
 
-- new computational tool output should start as `candidate`;
-- normal recall should prefer active records;
-- superseded or rejected records should not be deleted silently;
-- retractions and supersessions should stay auditable.
+- new tool output and auto-extracted pitfalls start as `candidate` — **hidden from
+  recall** so LLM-guessed content never auto-becomes a HARD CONSTRAINT;
+- a human vets a candidate into a recalled status with `minicrew promote <id>`
+  (`memory.promote()`), recorded with a `promotion_note`;
+- normal recall returns only active records (`kdb._filter` hides
+  candidate/superseded/rejected/expired);
+- superseded or rejected records are not deleted silently;
+- retractions and supersessions stay auditable (`supersede`, `supersession_note`).
 
 ## Run Outputs
 
@@ -340,17 +346,22 @@ Recently fixed:
 - Claude CLI now receives prompts through stdin.
 - run saving now reports actual Markdown and JSON paths.
 - supersession notes are persisted in typed memory.
-- prompt size budgets are enforced before model calls.
+- prompt size budgets are enforced before model calls, and a budget abort exits
+  nonzero from the CLI.
+- auto-extracted pitfalls are written as `candidate` (gated by `minicrew promote`)
+  instead of immediately becoming HARD CONSTRAINTS.
+- `start_all_bg.sh` is hardened (delegates to `scripts/minicrew-app`, verifies the
+  app is reachable before reporting success).
+- `prompts/tools/` removed — runnable capability is a skill, not a persona file.
 - `minicrew_ui.pid` is ignored as a runtime file.
 
 Known issues to address next:
 
-- CLI prompt-budget aborts should exit nonzero.
 - dry-run should also check prompt budgets.
-- `start_all_bg.sh` should be replaced or hardened; prefer maintained launchers.
 - `memory.py` should close files with `with open(...)` to remove
   `ResourceWarning`s.
-- generated run artifacts and curated knowledge records need a clear git policy.
+- generated run artifacts and curated knowledge records need a clear git policy
+  (consider ignoring `runs/` + `conversations/` while keeping a `.gitkeep`).
 
 ## Mental Model For Contributors
 

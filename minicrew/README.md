@@ -6,6 +6,11 @@ has several LLMs (Claude / Gemini / OpenAI / Edinburgh ELM / …) review a task 
 role, then a moderator synthesises a decision. Zero heavy deps — only `requests`
 + `pyyaml` (already in the TFsensor conda env).
 
+> 🧭 **New to the project / taking it over?** Start with
+> **[`HANDOVER.md`](HANDOVER.md)** — the onboarding guide (mental model, concepts,
+> recipes). This README is the command cheat-sheet; `SETUP.md` is fresh-machine
+> install; `docs/MINICREW_STRUCTURE.md` is the deep architecture reference.
+
 ## Quick start
 
 ```bash
