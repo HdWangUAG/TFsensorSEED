@@ -40,16 +40,22 @@ def save_run(crew, topology, transcript, out_path=None):
         md.append(t["content"])
         md.append("\n<details><summary>prompt this agent saw</summary>\n")
         md.append(f"```\n{t['prompt_seen']}\n```\n</details>\n")
+    # --out redirects ONLY the Markdown transcript; the JSON record always lands
+    # in RUNS_DIR (it's the machine index, addressed by run_id). We record BOTH
+    # actual paths on the record so callers can report exactly where each landed.
     md_path = out_path or os.path.join(conv_dir, f"{stem}.md")
     with open(md_path, "w", encoding="utf-8") as fh:
         fh.write("\n".join(md))
 
+    json_path = os.path.join(runs_dir, f"{stem}.json")
     record = {
         "run_id": stem,
         "crew": crew["name"],
         "topology": topology,
         "timestamp": ts,
         "task": task,
+        "md_path": md_path,
+        "json_path": json_path,
         "outputs": [
             {"agent": t["role"], "alias": t["alias"], "model": t["model"],
              "kind": t["kind"], "ok": t["ok"],
@@ -58,6 +64,6 @@ def save_run(crew, topology, transcript, out_path=None):
             for t in transcript
         ],
     }
-    with open(os.path.join(runs_dir, f"{stem}.json"), "w", encoding="utf-8") as fh:
+    with open(json_path, "w", encoding="utf-8") as fh:
         json.dump(record, fh, indent=2, ensure_ascii=False)
     return record

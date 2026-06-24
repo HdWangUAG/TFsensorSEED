@@ -38,7 +38,8 @@ _DEFAULT_STATUS = {"claim": "open", "decision": "active",
 # frontmatter keys we persist (everything filterable lives here)
 _FM_KEYS = ("id", "type", "tags", "status", "confidence", "created", "source_run",
             "relation", "claim_ids", "evidence_ids", "supersedes", "superseded_by",
-            "owner", "next_step", "severity", "epistemic_status", "source_type", "skill")
+            "supersession_note", "promotion_note", "owner", "next_step",
+            "severity", "epistemic_status", "source_type", "skill")
 
 # small project vocab → deterministic auto-tags (so records are filterable)
 _TAG_VOCAB = ["testosterone", "progesterone", "cortisol", "estradiol", "selectivity",
@@ -89,7 +90,9 @@ def to_markdown(rec):
     body = rec.get("text", "")
     # render structured sub-fields into the body for human reading
     for label, key in (("owner", "owner"), ("next step", "next_step"),
-                       ("severity", "severity"), ("relation", "relation")):
+                       ("severity", "severity"), ("relation", "relation"),
+                       ("superseded", "supersession_note"),
+                       ("promoted", "promotion_note")):
         if rec.get(key):
             body += f"\n\n**{label}:** {rec[key]}"
     for label, key in (("detection", "detection"), ("mitigation", "mitigation"),
@@ -170,9 +173,34 @@ def supersede(old_id, new_id=None, note=None):
     if new_id:
         rec["superseded_by"] = new_id
     if note:
-        rec["_body"] = (rec.get("_body", "") + f"\n\n**superseded:** {note}")
-        rec["text"] = rec.get("text", "")
+        # persist the rationale in frontmatter so to_markdown keeps it (the parsed
+        # _body is dropped on rewrite, so appending there would lose the note).
+        rec["supersession_note"] = note
     # rewrite from parsed dict (drop private keys)
+    clean = {k: v for k, v in rec.items() if not k.startswith("_")}
+    clean.setdefault("text", rec.get("text", ""))
+    path = os.path.join(dir_for(rec["type"]), f"{rec['id']}.md")
+    open(path, "w", encoding="utf-8").write(to_markdown(clean))
+    return path
+
+
+# active (recalled) statuses: everything NOT in INACTIVE_STATUS.
+ACTIVE_STATUS = STATUS - INACTIVE_STATUS
+
+
+def promote(record_id_, to="active", note=None):
+    """Vet a `candidate` record into a recalled status (the human gate for
+    auto-extracted records, e.g. pitfalls). Returns the updated record path."""
+    if to not in ACTIVE_STATUS:
+        raise ValueError(f"cannot promote to {to!r}; pick a recalled status "
+                         f"({sorted(ACTIVE_STATUS)})")
+    rec = get(record_id_)
+    if rec is None:
+        raise KeyError(f"record {record_id_!r} not found")
+    rec["status"] = to
+    if note:
+        rec["promotion_note"] = note
+    # rewrite from parsed dict (drop private keys), same shape as supersede()
     clean = {k: v for k, v in rec.items() if not k.startswith("_")}
     clean.setdefault("text", rec.get("text", ""))
     path = os.path.join(dir_for(rec["type"]), f"{rec['id']}.md")

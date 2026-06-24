@@ -1,12 +1,13 @@
-"""Agent registry — persona & tool agents as editable files.
+"""Agent registry — persona agents as editable files.
 
 An agent is a Markdown file:
-  - knowledge agents (viewpoints)  → prompts/personas/<file>.md
-  - tool agents (capabilities)     → prompts/tools/<file>.md
+  - persona agents (viewpoints)  → prompts/personas/<file>.md
 Optional YAML frontmatter carries name / model / description; the body is the
 system prompt. Files without frontmatter still work (name from the filename, no
-default model) so hand-written personas keep loading. The app does CRUD here;
-crews reference the same files via `persona_file`.
+default model) so hand-written personas keep loading.
+
+Real computational capabilities are managed as skills, not prompt files. See
+core/skills.py, core/skills_impl.py, and minicrew/skills/.
 """
 from __future__ import annotations
 
@@ -19,7 +20,6 @@ from . import config
 
 DIRS = {
     "persona": os.path.join(config.PROMPTS_DIR, "personas"),
-    "tool": os.path.join(config.PROMPTS_DIR, "tools"),
 }
 
 

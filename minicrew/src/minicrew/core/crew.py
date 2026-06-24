@@ -189,6 +189,33 @@ def _moderator_prompt(crew, ctx, evidence, transcript, synth):
 
 
 # ----------------------------------------------------------------------------
+# prompt budget (guard unbounded context growth)
+# ----------------------------------------------------------------------------
+class PromptBudgetError(RuntimeError):
+    """Assembled prompt exceeded the hard char budget (fail-fast before calling)."""
+
+
+def _prompt_guard(crew, who, prompt, on_event):
+    """Account for an assembled prompt before it is sent. Warn past the soft
+    budget; refuse (fail-fast) past the hard cap unless the crew opts in. Returns
+    the prompt unchanged so call sites can wrap it inline."""
+    n = len(prompt)
+    hard = crew.get("max_prompt_chars", config.PROMPT_MAX_CHARS)
+    if n >= config.PROMPT_WARN_CHARS:
+        print(_c(f"[prompt] {who}: {n:,} chars (warn ≥ "
+                 f"{config.PROMPT_WARN_CHARS:,}; hard cap {hard:,})", _DIM))
+        _emit(on_event, type="prompt_warning", who=who, chars=n,
+              warn=config.PROMPT_WARN_CHARS, hard=hard)
+    if not crew.get("allow_large_prompts") and n > hard:
+        raise PromptBudgetError(
+            f"{who}: assembled prompt is {n:,} chars, over the {hard:,}-char "
+            f"budget. Trim knowledge/context files, or set "
+            f"`allow_large_prompts: true` (or raise MINICREW_PROMPT_MAX_CHARS) "
+            f"to override.")
+    return prompt
+
+
+# ----------------------------------------------------------------------------
 # invocation (real or mock)
 # ----------------------------------------------------------------------------
 def _mock_reply(role_name, alias, prompt):
@@ -316,6 +343,7 @@ def run_crew(name, extra_files=None, rounds=None, topology=None,
     if topology == "parallel_blind":
         for i, role in enumerate(crew["roles"]):
             prompt = _reviewer_prompt(crew, ctx, evidence, role)
+            _prompt_guard(crew, role["name"], prompt, on_event)
             ok, alias, model, text = _invoke(role, prompt, mock)
             _print_turn(i, role, alias, model, text, ok)
             rec = _record(role, alias, model, "reviewer", prompt, text, ok)
@@ -329,6 +357,7 @@ def run_crew(name, extra_files=None, rounds=None, topology=None,
                 print(_c(f"\n----- round {rnd}/{rounds} -----", _BOLD))
             for i, role in enumerate(crew["roles"]):
                 prompt = _round_prompt(crew, ctx, evidence, transcript, role)
+                _prompt_guard(crew, role["name"], prompt, on_event)
                 ok, alias, model, text = _invoke(role, prompt, mock)
                 _print_turn(i, role, alias, model, text, ok)
                 rec = _record(role, alias, model, "reviewer", prompt, text, ok)
@@ -340,6 +369,7 @@ def run_crew(name, extra_files=None, rounds=None, topology=None,
     synth = crew.get("synthesizer")
     if synth:
         prompt = _moderator_prompt(crew, ctx, evidence, transcript, synth)
+        _prompt_guard(crew, synth.get("name", "Moderator"), prompt, on_event)
         sr = dict(synth)
         sr.setdefault("name", "Moderator")
         sr.setdefault("temperature", 0.3)
@@ -352,7 +382,9 @@ def run_crew(name, extra_files=None, rounds=None, topology=None,
 
     from . import logger
     rec = logger.save_run(crew, topology, transcript, out_path)
-    print(_c(f"\n[saved] conversations/{rec['run_id']}.md  +  runs/{rec['run_id']}.json", _DIM))
+    _md = os.path.relpath(rec["md_path"], config.REPO_ROOT)
+    _json = os.path.relpath(rec["json_path"], config.REPO_ROOT)
+    print(_c(f"\n[saved] {_md}  +  {_json}", _DIM))
     _emit(on_event, type="done", run_id=rec["run_id"])
     if (sediment or crew.get("auto_sediment")) and not mock:
         _auto_sediment(crew, rec["run_id"], on_event)

@@ -131,6 +131,13 @@ DEFAULT_MAX_TOKENS = int(get("MINICREW_MAX_TOKENS", "1024"))
 DEFAULT_TEMPERATURE = float(get("MINICREW_TEMPERATURE", "0.7"))
 HTTP_TIMEOUT = int(get("MINICREW_HTTP_TIMEOUT", "180"))
 
+# --- prompt budget: guard against unbounded context growth -----------------
+# Assembled prompts are measured before every model call. At/above WARN we flag
+# the size; above MAX we refuse the run (fail-fast) unless the crew opts in with
+# `allow_large_prompts: true` (or `max_prompt_chars:` to set its own ceiling).
+PROMPT_WARN_CHARS = int(get("MINICREW_PROMPT_WARN_CHARS", "100000"))
+PROMPT_MAX_CHARS = int(get("MINICREW_PROMPT_MAX_CHARS", "500000"))
+
 # Project layout (research-style): configs/ prompts/ conversations/ runs/.
 CONFIGS_DIR = os.path.join(MINICREW_DIR, "configs")
 PROMPTS_DIR = os.path.join(MINICREW_DIR, "prompts")

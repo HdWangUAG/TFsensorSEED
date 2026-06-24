@@ -51,3 +51,6 @@ data/ml/esm_cache/
 
 # minicrew skill run artifacts (transient; provenance lives in evidence records)
 minicrew/artifacts/
+
+# minicrew web-app runtime files (PID; the .log is covered by *.log above)
+minicrew_ui.pid

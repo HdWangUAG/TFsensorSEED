@@ -19,16 +19,20 @@ from .core import (config, crew, distill, embed, kdb, litdb, memory, scribe,
 
 
 def _cmd_run(args):
-    crew.run_crew(
-        args.crew,
-        extra_files=args.file,
-        rounds=args.rounds,
-        topology=args.topology,
-        dry_run=args.dry_run,
-        mock=args.mock,
-        out_path=args.out,
-        sediment=args.sediment,
-    )
+    try:
+        crew.run_crew(
+            args.crew,
+            extra_files=args.file,
+            rounds=args.rounds,
+            topology=args.topology,
+            dry_run=args.dry_run,
+            mock=args.mock,
+            out_path=args.out,
+            sediment=args.sediment,
+        )
+    except crew.PromptBudgetError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
 
 
 def _read_doc(path):
@@ -173,7 +177,7 @@ def _cmd_search(args):
 
 def _cmd_recall(args):
     hits = kdb.search(args.query, types=args.type or None, tags=args.tag or None,
-                      confidence_min=args.confidence,
+                      confidence_min=args.confidence, status=args.status,
                       include_superseded=args.include_superseded, top_k=args.k)
     if not hits:
         print("no matching records")
@@ -199,6 +203,26 @@ def _cmd_supersede(args):
           + (f" by {args.by}" if args.by else "")
           + f" → {os.path.relpath(path, config.REPO_ROOT)}")
     print("default recall now hides it (use --include-superseded to see it).")
+
+
+def _cmd_promote(args):
+    if not args.id:                       # no id → list what's awaiting promotion
+        cands = kdb.search("", types=args.type or None, status="candidate", top_k=100)
+        if not cands:
+            print("no candidate records pending promotion")
+            return
+        print(f"— {len(cands)} candidate record(s) pending promotion —")
+        for r in cands:
+            print(f"\n[{r['type']}] {r['id']}  (confidence={r.get('confidence')})")
+            if r.get("tags"):
+                print("   tags: " + ", ".join(map(str, r["tags"])))
+            print("   " + (r.get("text", "") or "")[:240])
+        print("\npromote one with:  minicrew promote <id>")
+        return
+    path = memory.promote(args.id, to=args.to, note=args.note)
+    print(f"promoted {args.id} → status={args.to} "
+          f"({os.path.relpath(path, config.REPO_ROOT)})")
+    print("recall + discussions now surface it (it grounds future runs).")
 
 
 def _cmd_skills(args):
@@ -331,6 +355,9 @@ def build_parser():
                     help="minimum confidence")
     rc.add_argument("--include-superseded", action="store_true",
                     help="include superseded records (hidden by default)")
+    rc.add_argument("--status", default=None, choices=sorted(memory.STATUS),
+                    help="filter to one exact status (e.g. `candidate` to find "
+                         "records awaiting promotion)")
     rc.add_argument("-k", type=int, default=10, help="number of results")
     rc.set_defaults(func=_cmd_recall)
 
@@ -340,6 +367,19 @@ def build_parser():
     sp.add_argument("--by", default=None, help="id of the replacing record")
     sp.add_argument("--note", default=None, help="why it was superseded")
     sp.set_defaults(func=_cmd_supersede)
+
+    pm = sub.add_parser("promote", help="vet a candidate record (e.g. an "
+                        "auto-extracted pitfall) into active so it's recalled")
+    pm.add_argument("id", nargs="?", default=None,
+                    help="record id to promote (omit to LIST pending candidates)")
+    pm.add_argument("--to", default="active",
+                    choices=sorted(memory.ACTIVE_STATUS),
+                    help="target status (default: active)")
+    pm.add_argument("--type", action="append", default=[],
+                    choices=["claim", "evidence", "decision", "pitfall"],
+                    help="when listing, restrict to record type(s) (repeatable)")
+    pm.add_argument("--note", default=None, help="why it was promoted (audit trail)")
+    pm.set_defaults(func=_cmd_promote)
 
     s = sub.add_parser("search", help="semantic-search the literature index")
     s.add_argument("query", help="natural-language query")
@@ -362,11 +402,10 @@ def build_parser():
 def main(argv=None):
     args = build_parser().parse_args(argv)
     try:
-        args.func(args)
+        return args.func(args) or 0     # a command may return a nonzero exit code
     except (FileNotFoundError, ValueError, KeyError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
-    return 0
 
 
 if __name__ == "__main__":

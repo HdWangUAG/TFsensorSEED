@@ -45,8 +45,8 @@ Or launch just the UI: `scripts/minicrew-app` (browser) / `scripts/minicrew-desk
   then the moderator's synthesis.
 - **💬 Chat** — talk 1:1 with one agent, optionally grounded in pitfalls + top-k
   literature (a brainstorm vs the panel).
-- **🤖 Agents** — create / edit / delete knowledge & tool agents (role, model,
-  system prompt) — no YAML editing.
+- **🤖 Agents** — create / edit / delete persona agents (role, model,
+  system prompt) — no YAML editing. Runnable tools live on the **Skills** page.
 - **👥 Crews** — assemble agents into a team for a new topic (task, reviewers +
   models, moderator, topology, knowledge); saved crews appear in the room. New
   topic = make agents → build a crew → run.
@@ -143,8 +143,8 @@ minicrew/
 │   ├── computational/     #   MEDIUM — tool capabilities / resolution
 │   └── pitfalls/          #   HARD CONSTRAINT — gotchas (+ auto docs/agent_memory)
 ├── prompts/
-│   ├── personas/          # persona agents — viewpoints (work today)
-│   └── tools/             # tool agents — persona + real tool-calling (roadmap)
+│   └── personas/          # persona agents — scientific viewpoints/roles
+├── skills/                # runnable tools — capability docs + scripts (single source of truth)
 ├── examples/              # sample input plans
 ├── conversations/         # run output — human transcripts (.md)
 ├── runs/                  # run output — machine records (.json)

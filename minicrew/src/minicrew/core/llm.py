@@ -154,7 +154,10 @@ def _claude_cli(spec, system, prompt):
     *replaces* the default coding-assistant prompt so Claude plays the persona.
     """
     binary = spec.get("bin") or "claude"
-    cmd = [binary, "-p", prompt, "--output-format", "text"]
+    # The prompt goes in on STDIN (not argv): research prompts run to 100k+ chars,
+    # which can blow the OS argv limit and would otherwise be visible in `ps`.
+    # `claude -p` with no positional prompt reads the user message from stdin.
+    cmd = [binary, "-p", "--output-format", "text"]
     if system:
         cmd += ["--system-prompt", system]
     if spec.get("model"):
@@ -168,7 +171,7 @@ def _claude_cli(spec, system, prompt):
         raise LLMError(f"claude CLI {binary!r} not found "
                        f"(set MINICREW_CLAUDE_CLI_BIN to its path)")
     try:
-        res = subprocess.run(cmd, capture_output=True, text=True,
+        res = subprocess.run(cmd, input=prompt, capture_output=True, text=True,
                              timeout=config.HTTP_TIMEOUT, env=env)
     except subprocess.TimeoutExpired as exc:
         raise LLMError("claude CLI timed out") from exc

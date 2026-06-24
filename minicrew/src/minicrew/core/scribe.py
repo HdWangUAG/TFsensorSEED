@@ -6,8 +6,10 @@ pitfalls) into knowledge/decisions/ — grounded ONLY in the transcript. Future
 discussions that include the `decisions` knowledge layer then build on it, so the
 system accumulates project understanding instead of forgetting each run.
 
-Safety: candidate pitfalls are recorded *inside* the decisions note (labelled),
-NOT auto-promoted to the HARD-CONSTRAINT pitfalls layer — a human curates those.
+Safety: candidate pitfalls ARE extracted as typed pitfall records, but with
+`status: candidate` — hidden from recall, so an LLM-guessed pitfall never
+auto-becomes a HARD CONSTRAINT. A human vets each into `active` with
+`minicrew promote <id>` before it grounds future discussions.
 """
 from __future__ import annotations
 
@@ -44,7 +46,10 @@ _SECTION_TYPE = {
     "consensus": ("claim", {"status": "open"}),
     "findings": ("claim", {"status": "open"}),
     "decisions": ("decision", {"status": "active"}),
-    "candidate pitfalls": ("pitfall", {"status": "active", "severity": "medium"}),
+    # Candidate pitfalls are written as `candidate` (NOT recalled by default) so
+    # an LLM-guessed pitfall from one discussion can't auto-become a HARD
+    # CONSTRAINT. A human vets it into `active` via `minicrew promote <id>`.
+    "candidate pitfalls": ("pitfall", {"status": "candidate", "severity": "medium"}),
     "open questions": (None, {}),     # not a durable record
 }
 _CONF_TAG = re.compile(r"^\s*\[(HIGH|MEDIUM|LOW|ASSUMPTION)\]\s*", re.IGNORECASE)

@@ -4,7 +4,7 @@ Run: scripts/minicrew-app   (or scripts/minicrew-desktop for a native window)
 """
 import streamlit as st
 
-from minicrew.core import agents, config, crew, litstore
+from minicrew.core import agents, config, crew, litstore, skills
 
 st.set_page_config(page_title="MiniCrew", page_icon="🔬", layout="wide")
 
@@ -25,13 +25,12 @@ def home():
                "discuss by role, and help you do research.")
 
     personas = agents.list_agents("persona")
-    tools = agents.list_agents("tool")
     notes = litstore.list_notes()
     crews = crew.list_crews()
 
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("🤖 Knowledge agents", len(personas))
-    c2.metric("🛠️ Tool agents", len(tools))
+    c1.metric("🤖 Persona agents", len(personas))
+    c2.metric("🛠️ Skills", len(skills.SKILLS))
     c3.metric("📚 Literature notes", len(notes))
     c4.metric("👥 Crews", len(crews))
 
@@ -42,7 +41,7 @@ def home():
         st.markdown(
             "- **🔬 Discussion room** — run a crew, watch agents discover live\n"
             "- **💬 Chat** — talk 1:1 with an agent, grounded in your knowledge\n"
-            "- **🤖 Agents** — create / edit / delete knowledge & tool agents\n"
+            "- **🤖 Agents** — create / edit / delete persona agents (roles/viewpoints)\n"
             "- **🛠️ Skills** — browse + run the computational skills (PyMOL, flex-ddG, RDKit, literature)\n"
             "- **👥 Crews** — assemble agents into a team for a new topic\n"
             "- **📚 Literature** — ingest papers (PDF/SI/figures), distil, search\n"
@@ -50,9 +49,8 @@ def home():
             "- **🗂️ History** — browse past discussions (with each agent's prompt)")
     with b:
         st.subheader("Your agents")
-        for ag in personas + tools:
-            tag = "🛠️" if ag["kind"] == "tool" else "🤖"
-            st.caption(f"{tag} **{ag['name']}**"
+        for ag in personas:
+            st.caption(f"🤖 **{ag['name']}**"
                        + (f" · {ag['model']}" if ag.get("model") else "")
                        + (f" — {ag['description']}" if ag.get("description") else ""))
 
